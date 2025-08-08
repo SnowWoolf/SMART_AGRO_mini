@@ -682,7 +682,7 @@ def handle_feed_timers(params_dict: dict):
                     f"факт = {actual_ec_change:.3f}, эффективность = {eff_ec:.0f}%"
                 )
 
-            # 2) pH
+            # 2) pH 
             if mix_state["expected_ph"] == 0:
                 lines.append("Регулирование по pH не выполнялось.")
             else:
