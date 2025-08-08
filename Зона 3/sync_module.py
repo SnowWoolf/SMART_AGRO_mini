@@ -1,4 +1,4 @@
-# sync_module.py
+# sync_module.py main mini
 
 import os
 import time
