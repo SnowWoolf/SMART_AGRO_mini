@@ -1,164 +1,49 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="main-wrapper">
+    <div class="container_log">
+        <!-- Информация -->
+        <div class="parameter-container">
+            <h2>Информация о событиях фермы</h2>
+            <div class="log-container2">
+                {% if logs_info %}
+                    <ul class="log-list">
+                        {% for log in logs_info %}
+                            <li>{{ (log.timestamp + timedelta).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>Нет информационных сообщений.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
     <div class="container">
         <div class="row-container">
-            <div class="parameter-container">
-                <span class="parameter-name">Клапан 1.1</span>
-                <button id="shelf1" class="status-button"
-                        onclick="toggleParameter('Клапан 1.1')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.2</span>
-                <button id="shelf2" class="status-button"
-                        onclick="toggleParameter('Клапан 1.2')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.3</span>
-                <button id="shelf3" class="status-button"
-                        onclick="toggleParameter('Клапан 1.3')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.4</span>
-                <button id="shelf4" class="status-button"
-                        onclick="toggleParameter('Клапан 1.4')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.5</span>
-                <button id="shelf5" class="status-button"
-                        onclick="toggleParameter('Клапан 1.5')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.6</span>
-                <button id="shelf6" class="status-button"
-                        onclick="toggleParameter('Клапан 1.6')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.7</span>
-                <button id="shelf7" class="status-button"
-                        onclick="toggleParameter('Клапан 1.7')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.8</span>
-                <button id="shelf8" class="status-button"
-                        onclick="toggleParameter('Клапан 1.8')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.9</span>
-                <button id="shelf9" class="status-button"
-                        onclick="toggleParameter('Клапан 1.9')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 1.10</span>
-                <button id="shelf10" class="status-button"
-                        onclick="toggleParameter('Клапан 1.10')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-            </div>
 
             <div class="parameter-container">
-                <span class="parameter-name">Клапан 2.1</span>
-                <button id="shelf11" class="status-button"
-                        onclick="toggleParameter('Клапан 2.1')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
 
-                <span class="parameter-name">Клапан 2.2</span>
-                <button id="shelf12" class="status-button"
-                        onclick="toggleParameter('Клапан 2.2')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.3</span>
-                <button id="shelf13" class="status-button"
-                        onclick="toggleParameter('Клапан 2.3')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.4</span>
-                <button id="shelf14" class="status-button"
-                        onclick="toggleParameter('Клапан 2.4')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.5</span>
-                <button id="shelf15" class="status-button"
-                        onclick="toggleParameter('Клапан 2.5')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.6</span>
-                <button id="shelf16" class="status-button"
-                        onclick="toggleParameter('Клапан 2.6')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.7</span>
-                <button id="shelf17" class="status-button"
-                        onclick="toggleParameter('Клапан 2.7')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.8</span>
-                <button id="shelf18" class="status-button"
-                        onclick="toggleParameter('Клапан 2.8')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.9</span>
-                <button id="shelf19" class="status-button"
-                        onclick="toggleParameter('Клапан 2.9')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Клапан 2.10</span>
-                <button id="shelf20" class="status-button"
-                        onclick="toggleParameter('Клапан 2.10')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-            </div>
-            <div class="parameter-container">
-                <span class="parameter-name">Клапан перемешивания</span>
-                <button id="shelf21" class="status-button"
-                        onclick="toggleParameter('Клапан перемешивания')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-                <span class="parameter-name">Наполнение бака</span>
-                <button id="shelf25" class="status-button"
-                        onclick="toggleParameter('Наполнение бака')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Слив с бака</span>
-                <button id="shelf26" class="status-button"
-                        onclick="toggleParameter('Слив с бака')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Насос</span>
-                <button id="shelf28" class="status-button"
+                 <span class="parameter-name">Насос</span>
+                <button id="nasos" class="status-button"
                         onclick="toggleParameter('Насос')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
 
-                <span class="parameter-name">Освещение 1 этаж</span>
-                <button id="shelf29" class="status-button"
-                        onclick="toggleParameter('Освещение 1 этаж')"
+                <span class="parameter-name">Клапан перемешивания</span>
+                <button id="peremesh" class="status-button"
+                        onclick="toggleParameter('Перемешивание')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
 
-                <span class="parameter-name">Освещение 2 этаж</span>
-                <button id="shelf30" class="status-button"
-                        onclick="toggleParameter('Освещение 2 этаж')"
+                <span class="parameter-name">Полив</span>
+                <button id="poliv" class="status-button"
+                        onclick="toggleParameter('Полив')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
+
+                <span class="parameter-name">Свет</span>
+                <button id="svet" class="status-button"
+                        onclick="toggleParameter('Свет')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
                 <span class="parameter-name"> </span>
@@ -177,19 +62,19 @@
                 </button>
             </div>
             <div class="parameter-container">
-                <span class="parameter-name">Линия 1 этаж 1 БЕЛЫЙ</span>
+                <span class="parameter-name">Свет БЕЛЫЙ</span>
                 <table>
                     <tr>
                         <th>%</th>
                         <td>
                             <button id="level_1_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 1 этаж 1 БЕЛЫЙ')"
+                                    onclick="openModal('ЯРКОСТЬ 1 БЕЛЫЙ')"
                                     {% if current_user.username != 'admin' %} disabled {% endif %}>
                             </button>
                         </td>
                         <td>
                             <button id="chanel_1_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 1 этаж 1 БЕЛЫЙ')"
+                                    onclick="toggleParameter('КАНАЛ 1 БЕЛЫЙ')"
                                     {% if current_user.username != 'admin' %} disabled {% endif %}>
                             </button>
                         </td>
@@ -210,715 +95,27 @@
                         </div>
                     </tr>
                 </table>
-                <span class="parameter-name">Линия 1 этаж 1 КРАСНЫЙ</span>
+                <span class="parameter-name">Свет КРАСНЫЙ</span>
                 <table>
                     <tr>
                         <th>%</th>
                         <td>
                             <button id="level_1_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 1 этаж 1 КРАСНЫЙ')"
+                                    onclick="openModal('ЯРКОСТЬ 1 КРАСНЫЙ')"
                                     {% if current_user.username != 'admin' %} disabled {% endif %}>
                             </button>
                         </td>
                         <td>
                             <button id="chanel_1_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 1 этаж 1 КРАСНЫЙ')"
+                                    onclick="toggleParameter('КАНАЛ 1 КРАСНЫЙ')"
                                     {% if current_user.username != 'admin' %} disabled {% endif %}>
                             </button>
                         </td>
                     </tr>
                 </table>
-                <span class="parameter-name">Линия 2 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_2_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 2 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_2_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 2 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 2 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_2_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 2 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_2_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 2 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 3 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_3_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 3 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_3_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 3 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 3 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_3_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 3 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_3_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 3 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 4 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_4_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 4 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_4_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 4 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 4 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_4_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 4 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_4_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 4 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 5 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_5_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 5 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_5_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 5 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 5 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_5_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 5 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_5_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 5 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
+
             </div>
-            <div class="parameter-container">
-                <span class="parameter-name">Линия 6 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_6_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 6 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_6_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 6 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 6 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_6_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 6 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_6_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 6 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 7 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_7_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 7 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_7_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 7 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 7 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_7_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 7 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_7_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 7 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 8 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_8_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 8 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_8_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 8 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 8 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_8_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 8 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_8_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 8 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 9 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_9_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 9 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_9_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 9 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 9 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_9_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 9 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_9_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 9 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 10 этаж 1 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_10_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 10 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_10_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 10 этаж 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 10 этаж 1 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_10_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 10 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_10_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 10 этаж 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            <div class="parameter-container">
-                <span class="parameter-name">Линия 1 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_1_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 1 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_1_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 1 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 1 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_1_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 1 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_1_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 1 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 2 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_2_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 2 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_2_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 2 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 2 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_2_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 2 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_2_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 2 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 3 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_3_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 3 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_3_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 3 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 3 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_3_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 3 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_3_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 3 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 4 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_4_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 4 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_4_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 4 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 4 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_4_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 4 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_4_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 4 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 5 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_5_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 5 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_5_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 5 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 5 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_5_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 5 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_5_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 5 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            <div class="parameter-container">
-                <span class="parameter-name">Линия 6 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_6_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 6 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_6_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 6 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 6 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_6_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 6 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_6_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 6 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 7 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_7_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 7 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_7_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 7 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 7 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_7_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 7 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_7_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 7 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 8 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_8_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 8 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_8_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 8 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 8 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_8_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 8 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_8_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 8 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 9 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_9_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 9 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_9_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 9 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 9 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_9_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 9 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_9_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 9 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 10 этаж 2 БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_10_2_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 10 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_10_2_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 10 этаж 2 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Линия 10 этаж 2 КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_10_2_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ Линия 10 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_10_2_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ Линия 10 этаж 2 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+
             <div class="parameter-container">
                 <span class="parameter-name">Показатели</span>
                 <table>
@@ -952,51 +149,29 @@
                 <span class="parameter-name">Уровень БАКА</span>
                 <table>
                     <tr>
-                        <th>92%</th>
+                        <th>Верхний</th>
                         <td id="level-1" class="indicator-wrapper">
                               <div id="indicator-level-1" class="status-indicator"></div>
                         </td>
                     </tr>
                     <tr>
-                        <th>75%</th>
+                        <th>Середина</th>
                         <td id="level-2" class="indicator-wrapper">
                                 <div id="indicator-level-2" class="status-indicator"></div>
                         </td>
                     </tr>
                     <tr>
-                        <th>57%</th>
+                        <th>Нижний</th>
                         <td id="level-3" class="indicator-wrapper">
                                 <div id="indicator-level-3" class="status-indicator"></div>
                         </td>
                     </tr>
-                    <tr>
-                        <th>40%</th>
-                        <td id="level-4" class="indicator-wrapper">
-                                <div id="indicator-level-4" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>22%</th>
-                        <td id="level-5" class="indicator-wrapper">
-                                <div id="indicator-level-5" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>05%</th>
-                        <td id="level-6" class="indicator-wrapper">
-                                <div id="indicator-level-6" class="status-indicator"></div>
-                        </td>
-                    </tr>
+
                 </table>
 
                 <span class="parameter-name">Уровень компонент А</span>
                 <table>
-                    <tr>
-                        <th>Середина</th>
-                        <td id="level-A" class="indicator-wrapper">
-                            <div id="indicator-level-A" class="status-indicator"></div>
-                        </td>
-                    </tr>
+
                     <tr>
                         <th>Минимум</th>
                         <td id="level-A2" class="indicator-wrapper">
@@ -1006,12 +181,7 @@
                 </table>
                 <span class="parameter-name">Уровень компонент В</span>
                 <table>
-                    <tr>
-                        <th>Середина</th>
-                        <td id="level-B" class="indicator-wrapper">
-                            <div id="indicator-level-B" class="status-indicator"></div>
-                        </td>
-                    </tr>
+
                     <tr>
                         <th>Минимум</th>
                         <td id="level-B2" class="indicator-wrapper">
@@ -1021,12 +191,7 @@
                 </table>
                 <span class="parameter-name">Уровень кислота</span>
                 <table>
-                    <tr>
-                        <th>Середина</th>
-                        <td id="level-K" class="indicator-wrapper">
-                            <div id="indicator-level-K" class="status-indicator"></div>
-                        </td>
-                    </tr>
+
                     <tr>
                         <th>Минимум</th>
                         <td id="level-K2" class="indicator-wrapper">
@@ -1036,6 +201,24 @@
                 </table>
             </div>
         </div>
+    </div>
+    <div class="container_log">
+        <!-- Аварии -->
+        <div class="parameter-container">
+            <h2>Аварийные события</h2>
+            <div class="log-container2">
+                {% if logs_errors %}
+                    <ul class="log-list">
+                        {% for log in logs_errors %}
+                            <li>{{ (log.timestamp + timedelta).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>Нет аварийных сообщений.</p>
+                {% endif %}
+            </div>
+        </div>
+
     </div>
 </div>
 
