@@ -79,14 +79,13 @@ mix_state = {
 # Словарь связанных критических условий:
 # формат: (параметр1, должен_быть_включен1, параметр2, должен_быть_включен2)
 CRITICAL_LINKS = [
-    ("Насос", True, "Уровень 1 мин", False),
-    ("Чистая вода", True, "Уровень 4 макс", True),
-    ("Подача A в бак", True, "уровень А мин", False),
-    ("Подача В в бак", True, "уровень В мин", False),
-    ("Подача кислоты в бак", True, "уровень К мин", False),
+    ("Насос", True, "Уровень 1 минимум", False),
+    ("Подача A в бак", True, "Уровень А", False),
+    ("Подача В в бак", True, "Уровень В", False),
+    ("Подача кислоты в бак", True, "Уровень К", False),
 ]
 
-STIRRER_PARAM       = "Клапан перемешивания"
+STIRRER_PARAM       = "Перемешивание"
 FEED_RELAYS         = [
     "Подача A в бак",
     "Подача В в бак",
@@ -188,7 +187,6 @@ def insert_log_message(message: str, level: str="INFO"):
     except Exception as e:
         logger.error(f"Ошибка логирования: {e}")
         session.rollback()
-
 
 def get_parameter_value(name: str) -> str:
     """Возвращает Parameter.value по имени."""
