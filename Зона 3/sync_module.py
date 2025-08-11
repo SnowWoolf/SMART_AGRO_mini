@@ -501,7 +501,7 @@ def handle_feed_timers(params_dict: dict):
         if mix_state.get("phase") != "idle":
             # Сбрасываем таймеры и реле
             for _, _, _, timer_name, relay_name in [
-                ("A", "expected_ec", insert_density_record, "Время подачи A в бак", "Подача A в бак"),
+                ("A", "expected_ec", insert_density_record, "Время подачи A в бак", "Подача А в бак"),
                 ("В", "expected_ec", insert_density_record, "Время подачи В в бак", "Подача В в бак"),
                 ("кислоты", "expected_ph", insert_buffer_capacity_record, "Время подачи кислоты в бак", "Подача кислоты в бак"),
             ]:
@@ -708,17 +708,27 @@ def poll_parameters():
 
     # 1) Загружаем все параметры
     all_params = session.query(Parameter).all()
+
+    # Функция для безопасного преобразования bytes в str
+    def to_str(value):
+        if isinstance(value, bytes):
+            return value.decode('utf-8')  # Используйте 'cp1251' если UTF-8 не работает
+        return value
+
     monitored_params = {
-        p.controlled_parameter_name
+        to_str(p.controlled_parameter_name)
         for p in all_params
-        if p.operation_type.lower() == "чтение / запись"
+        if to_str(p.operation_type).lower() == "чтение / запись"
     }
+
     low_level_params = {
-        p.controlled_parameter_name
+        to_str(p.controlled_parameter_name)
         for p in all_params
-        if "минимум" in p.controlled_parameter_name.lower()
+        if "минимум" in to_str(p.controlled_parameter_name).lower()
     }
-    params_dict = {p.controlled_parameter_name: p for p in all_params}
+
+    # Создаем словарь с ДЕКОДИРОВАННЫМИ ключами
+    params_dict = {to_str(p.controlled_parameter_name): p for p in all_params}
 
     ph = float(params_dict["Уровень PH"].value or 0)
     ec = float(params_dict["Уровень EC"].value or 0)

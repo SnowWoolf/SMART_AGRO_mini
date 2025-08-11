@@ -117,9 +117,9 @@ async function updateData() {
 
         // Обновляем графические индикаторы для баков компонентов
 
-        updateBinaryIndicator('indicator-level-A2', 'Уровень А');
-        updateBinaryIndicator('indicator-level-B2', 'Уровень В');
-        updateBinaryIndicator('indicator-level-K2', 'Уровень К');
+        updateBinaryIndicator('indicator-level-A2', 'Уровень А минимум');
+        updateBinaryIndicator('indicator-level-B2', 'Уровень В минимум');
+        updateBinaryIndicator('indicator-level-K2', 'Уровень К минимум');
 
         updateStatusText('statusA', 'Подача А в бак');
         updateStatusText('statusB', 'Подача В в бак');
