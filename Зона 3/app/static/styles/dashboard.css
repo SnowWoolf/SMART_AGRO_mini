@@ -219,7 +219,7 @@ tr:hover {
 .btn {
     background-color: var(--primary-color);
     color: white;
-    padding: 4px 10px;
+    padding: 10px 10px;
     border: none;
     border-radius: 8px;
     font-size: 20px;
@@ -229,7 +229,7 @@ tr:hover {
     transition: background-color 0.5s, box-shadow 0.5s;
     box-shadow: 0 0 20px 5px rgba(40, 167, 69, 0.1);
     margin-right: 5px;
-    width: 100px;
+    width: 150px;
 }
 
 /* Модальные окна */

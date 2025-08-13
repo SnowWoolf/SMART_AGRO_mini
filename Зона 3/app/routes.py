@@ -83,6 +83,38 @@ def scenarios():
                            light_scenarios=light_scenarios,
                            title='Сценарии')
 
+@bp.route('/scenario_parameters')
+@login_required
+def scenario_parameters():
+    params = Parameter.query.with_entities(
+        Parameter.controlled_parameter_name,
+        Parameter.scenario_belonging
+    ).all()
+
+    # Готовим словарь списков
+    groups = {
+        'Полив': [],
+        'Свет': [],
+        'Свет уровень': []
+    }
+
+    for name, belong in params:
+        # на всякий случай декодируем bytes
+        if isinstance(name, bytes):
+            name = name.decode('utf-8')
+        if isinstance(belong, bytes):
+            belong = belong.decode('utf-8')
+        if belong in groups:
+            groups[belong].append(name)
+
+    # Отдадим фронту ровно то, что ему нужно
+    return jsonify({
+        'poliv': groups['Полив'],
+        'svet': groups['Свет'],
+        'svet_level': groups['Свет уровень']
+    })
+
+
 @bp.route('/add_scenario', methods=['POST'])
 @login_required
 def add_scenario():
