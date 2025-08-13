@@ -9,7 +9,7 @@
                 {% if logs_info %}
                     <ul class="log-list">
                         {% for log in logs_info %}
-                            <li>{{ (log.timestamp + timedelta).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
+                            <li>{{ (log.timestamp).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
                         {% endfor %}
                     </ul>
                 {% else %}
@@ -210,7 +210,7 @@
                 {% if logs_errors %}
                     <ul class="log-list">
                         {% for log in logs_errors %}
-                            <li>{{ (log.timestamp + timedelta).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
+                            <li>{{ (log.timestamp).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
                         {% endfor %}
                     </ul>
                 {% else %}
