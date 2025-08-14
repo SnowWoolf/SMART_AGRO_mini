@@ -860,12 +860,12 @@ def poll_parameters():
 
             # Конфликт
             elif db_raw_f != prev_db_f and dev_raw_f != prev_dev_f:
-                insert_log_message(
-                    f"Конфликт {p.controlled_parameter_name}: "
-                    f"WEB={format_value(p, str(db_raw_f))}, "
-                    f"PLC={format_value(p, str(dev_raw_f))}",
-                    level="WARNING"
-                )
+                # insert_log_message(
+                #     f"Конфликт {p.controlled_parameter_name}: "
+                #     f"WEB={format_value(p, str(db_raw_f))}, "
+                #     f"PLC={format_value(p, str(dev_raw_f))}",
+                #     level="WARNING"
+                # )
                 write_parameter_value(p, db_raw_f)
                 p.value = str(db_raw_f)
                 p.value_date = now
