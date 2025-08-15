@@ -93,10 +93,17 @@ async function updateData() {
             }
         };
 
-        updateButton('nasos', 'Насос');
+        updateButton('napolnit', 'Наполнение');
         updateButton('peremesh', 'Перемешивание');
-        updateButton('poliv', 'Полив');
-        updateButton('svet', 'Свет');
+        updateButton('sliv', 'Слив');
+        updateButton('nasos', 'Насос');
+        updateButton('svet1', 'Свет 12');
+        updateButton('svet2', 'Свет 34');
+
+        updateButton('polka1', 'Полка 1');
+        updateButton('polka2', 'Полка 2');
+        updateButton('polka3', 'Полка 3');
+        updateButton('polka4', 'Полка 4');
 
         updateButton('mode_param', 'Режим эксплуатации');
         updateButton('mixing', 'Растворный узел');
@@ -110,12 +117,16 @@ async function updateData() {
         updateText2('UNIT_ID_EC', 'Уровень EC');
 
         // Обновляем графические индикаторы для основного бака
-        updateBinaryIndicator('indicator-level-1', 'Уровень 3');
-        updateBinaryIndicator('indicator-level-2', 'Уровень 2');
-        updateBinaryIndicator('indicator-level-3', 'Уровень 1 минимум');
+        updateBinaryIndicator('indicator-level-1', 'Уровень бак максимум');
+        updateBinaryIndicator('indicator-level-2', 'Уровень бак средний');
+        updateBinaryIndicator('indicator-level-3', 'Уровень бак минимум');
 
 
         // Обновляем графические индикаторы для баков компонентов
+
+        updateBinaryIndicator('indicator-level-A1', 'Уровень А максимум');
+        updateBinaryIndicator('indicator-level-B1', 'Уровень В максимум');
+        updateBinaryIndicator('indicator-level-K1', 'Уровень К максимум');
 
         updateBinaryIndicator('indicator-level-A2', 'Уровень А минимум');
         updateBinaryIndicator('indicator-level-B2', 'Уровень В минимум');

@@ -23,43 +23,52 @@
 
             <div class="parameter-container">
 
-                 <span class="parameter-name">Насос</span>
+                 <span class="parameter-name">Наполнение водой</span>
+                <button id="napolnit" class="status-button"
+                        onclick="toggleParameter('Наполнение')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
+                <span class="parameter-name">Перемешивание</span>
+                <button id="peremesh" class="status-button"
+                        onclick="toggleParameter('Перемешивание')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
+                <span class="parameter-name">Слив раствора</span>
+                <button id="sliv" class="status-button"
+                        onclick="toggleParameter('Слив')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
+                <span class="parameter-name">Насос</span>
                 <button id="nasos" class="status-button"
                         onclick="toggleParameter('Насос')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
 
-                <span class="parameter-name">Клапан перемешивания</span>
-                <button id="peremesh" class="status-button"
-                        onclick="toggleParameter('Перемешивание')"
+                <span class="parameter-name">Полив на полку 1</span>
+                <button id="polka1" class="status-button"
+                        onclick="toggleParameter('Полка 1')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
 
-                <span class="parameter-name">Полив</span>
-                <button id="poliv" class="status-button"
-                        onclick="toggleParameter('Полив')"
+                <span class="parameter-name">Полив на полку 2</span>
+                <button id="polka2" class="status-button"
+                        onclick="toggleParameter('Полка 2')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
 
-                <span class="parameter-name">Свет</span>
-                <button id="svet" class="status-button"
-                        onclick="toggleParameter('Свет')"
+                <span class="parameter-name">Полив на полку 3</span>
+                <button id="polka3" class="status-button"
+                        onclick="toggleParameter('Полка 3')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
-                <span class="parameter-name"> </span>
-                <span class="parameter-name">==============</span>
-                <span class="parameter-name">Режим эксплуатации</span>
-                <button id="mode_param" class="status-button"
-                        onclick="toggleParameter('Режим эксплуатации')"
+
+                <span class="parameter-name">Полив на полку 4</span>
+                <button id="polka4" class="status-button"
+                        onclick="toggleParameter('Полка 4')"
                         {% if current_user.username != 'admin' %} disabled {% endif %}>
                 </button>
-                <span class="parameter-name"> </span>
-                <span class="parameter-name">==============</span>
-                <span class="parameter-name">Растворный узел</span>
-                <button id="mixing" class="status-button"
-                        onclick="toggleParameter('Растворный узел')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
+
+
             </div>
             <div class="parameter-container">
                 <span class="parameter-name">Свет БЕЛЫЙ</span>
@@ -113,7 +122,32 @@
                         </td>
                     </tr>
                 </table>
+                <span class="parameter-name"> </span>
+                <span class="parameter-name">==============</span>
+                <span class="parameter-name">Режим эксплуатации</span>
+                <button id="mode_param" class="status-button"
+                        onclick="toggleParameter('Режим эксплуатации')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
+                <span class="parameter-name"> </span>
+                <span class="parameter-name">==============</span>
+                <span class="parameter-name">Растворный узел</span>
+                <button id="mixing" class="status-button"
+                        onclick="toggleParameter('Растворный узел')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
 
+                <span class="parameter-name">Свет полки 1 и 2</span>
+                <button id="svet1" class="status-button"
+                        onclick="toggleParameter('Свет 12')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
+
+                <span class="parameter-name">Свет полки 3 и 4</span>
+                <button id="svet2" class="status-button"
+                        onclick="toggleParameter('Свет 34')"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </button>
             </div>
 
             <div class="parameter-container">
@@ -171,7 +205,12 @@
 
                 <span class="parameter-name">Уровень компонент А</span>
                 <table>
-
+                    <tr>
+                        <th>Максимум</th>
+                        <td id="level-A1" class="indicator-wrapper">
+                            <div id="indicator-level-A1" class="status-indicator"></div>
+                        </td>
+                    </tr>
                     <tr>
                         <th>Минимум</th>
                         <td id="level-A2" class="indicator-wrapper">
@@ -181,7 +220,12 @@
                 </table>
                 <span class="parameter-name">Уровень компонент В</span>
                 <table>
-
+                    <tr>
+                        <th>Максимум</th>
+                        <td id="level-B1" class="indicator-wrapper">
+                            <div id="indicator-level-B1" class="status-indicator"></div>
+                        </td>
+                    </tr>
                     <tr>
                         <th>Минимум</th>
                         <td id="level-B2" class="indicator-wrapper">
@@ -191,7 +235,12 @@
                 </table>
                 <span class="parameter-name">Уровень кислота</span>
                 <table>
-
+                    <tr>
+                        <th>Максимум</th>
+                        <td id="level-K1" class="indicator-wrapper">
+                            <div id="indicator-level-K1" class="status-indicator"></div>
+                        </td>
+                    </tr>
                     <tr>
                         <th>Минимум</th>
                         <td id="level-K2" class="indicator-wrapper">
