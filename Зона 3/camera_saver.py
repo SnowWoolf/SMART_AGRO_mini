@@ -1,0 +1,102 @@
+# camera_saver.py
+import os, time, glob
+import cv2
+import datetime as dt
+from dotenv import load_dotenv
+
+# грузим .env
+load_dotenv()
+
+# --- конфиг из окружения / дефолты ---
+RTSP        = os.getenv("CAMERA_RTSP_URL", "rtsp://admin:admin123@192.168.202.229:554/live/ch00_0")
+SAVE_DIR    = os.getenv("CAMERA_SAVE_DIR", "./camera_archive")
+SAVE_EVERY  = int(os.getenv("CAMERA_SAVE_EVERY_SEC", "300"))
+RETAIN_DAYS = float(os.getenv("CAMERA_RETAIN_DAYS", "14"))
+MAX_W       = int(os.getenv("CAMERA_MAX_PREVIEW_W", "1280"))
+JPEG_Q      = int(os.getenv("CAMERA_JPEG_QUALITY", "90"))
+
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+# минимизация задержек у ffmpeg-бекенда opencv
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+    "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|reorder_queue_size;0|stimeout;5000000"
+)
+
+def now(): return dt.datetime.now()
+
+def ts_to_name(ts: dt.datetime) -> str:
+    return ts.strftime("%Y%m%d_%H%M%S") + f"{int(ts.microsecond/1000):03d}.jpg"
+
+def name_to_ts(fname: str):
+    base = os.path.basename(fname)
+    stem, ext = os.path.splitext(base)
+    if ext.lower() != ".jpg": return None
+    try:
+        date_part, time_part = stem.split("_")
+        sec_dt = dt.datetime.strptime(date_part + "_" + time_part[:6], "%Y%m%d_%H%M%S")
+        ms = int(time_part[6:9]) if len(time_part) >= 9 else 0
+        return sec_dt + dt.timedelta(milliseconds=ms)
+    except: return None
+
+def save_frame(frame):
+    h, w = frame.shape[:2]
+    if w > MAX_W:
+        scale = MAX_W / float(w)
+        frame = cv2.resize(frame, (int(w*scale), int(h*scale)), interpolation=cv2.INTER_AREA)
+    path = os.path.join(SAVE_DIR, ts_to_name(now()))
+    cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_Q])
+    return path
+
+def retention_cleanup():
+    cutoff = now() - dt.timedelta(days=RETAIN_DAYS)
+    for p in glob.glob(os.path.join(SAVE_DIR, "*.jpg")):
+        ts = name_to_ts(p)
+        if ts and ts < cutoff:
+            try: os.remove(p)
+            except: pass
+
+def run():
+    cap = None
+    last_cleanup = 0.0
+    while True:
+        try:
+            if cap is None:
+                cap = cv2.VideoCapture(RTSP, cv2.CAP_FFMPEG)
+                if not cap.isOpened():
+                    print("RTSP недоступен, повтор через 5с")
+                    cap.release(); cap = None
+                    time.sleep(5)
+                    continue
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                for _ in range(15):
+                    cap.read()
+
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                print("Нет кадра, переподключение…")
+                try: cap.release()
+                except: pass
+                cap = None
+                time.sleep(2)
+                continue
+
+            path = save_frame(frame)
+            print("Сохранён:", path)
+
+            if time.time() - last_cleanup > 3600:
+                retention_cleanup()
+                last_cleanup = time.time()
+
+            time.sleep(SAVE_EVERY)
+
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print("Ошибка:", e)
+            time.sleep(3)
+    if cap is not None:
+        try: cap.release()
+        except: pass
+
+if __name__ == "__main__":
+    run()

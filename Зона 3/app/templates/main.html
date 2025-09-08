@@ -269,12 +269,51 @@
         </div>
 
     </div>
+    <!-- === КАМЕРА ФЕРМЫ === -->
+    <div class="parameter-container" style="margin-top: 16px;">
+      <h2>Камера фермы</h2>
+
+      <div class="row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:10px;">
+        <button id="cam_btn_latest" class="btn btn-primary">Последний кадр</button>
+        <button id="cam_btn_fix" class="btn btn-primary" {% if current_user.username != 'admin' %} disabled {% endif %}>Зафиксировать текущий кадр</button>
+        <a id="cam_btn_download_current" class="btn btn-primary" href="#" download>Скачать (текущий)</a>
+
+        <label for="cam_dtview" class="parameter-name" style="margin-left: 12px;">Дата-время:</label>
+        <input type="datetime-local" id="cam_dtview" class="form-control" style="min-width:240px"/>
+      </div>
+
+      <img id="cam_preview" alt="Кадр" style="max-width:100%; height:auto; border-radius:12px; display:block;"/>
+
+      <div class="row" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:12px;">
+        <label for="cam_dtStart" class="parameter-name">Timelapse: начало</label>
+        <input type="datetime-local" id="cam_dtStart" class="form-control"/>
+        <label for="cam_dtEnd" class="parameter-name">конец</label>
+        <input type="datetime-local" id="cam_dtEnd" class="form-control"/>
+        <label for="cam_fps" class="parameter-name">FPS</label>
+        <input type="number" id="cam_fps" min="1" max="60" value="20" class="form-control" style="width:90px"/>
+        <a id="cam_btn_download_timelapse" class="btn btn-primary" href="#">Скачать клип</a>
+      </div>
+
+      <div class="hint" style="color:#888; margin-top:8px;">
+        Архив сохраняется сервисом по расписанию. Имена файлов — дата и время создания (YYYYmmdd_HHMMSSmmm.jpg).
+      </div>
+    </div>
+    <!-- === /КАМЕРА ФЕРМЫ === -->
+
 </div>
 
 <script>
     const getParametersUrl = "{{ url_for('main.get_parameters') }}";
     const toggleParameterUrl = "{{ url_for('main.toggle_parameter') }}";
     const setParameterValueUrl = "{{ url_for('main.set_parameter_value') }}";
+    const camLatestInfoUrl   = "{{ url_for('main.camera_latest_info') }}";
+    const camLatestJpgUrl    = "{{ url_for('main.camera_latest_jpg') }}";
+    const camDownloadLatest  = "{{ url_for('main.camera_download_latest') }}";
+    const camCaptureNowUrl   = "{{ url_for('main.camera_capture_now') }}";
+    const camImageAtUrl      = "{{ url_for('main.camera_image_at') }}";
+    const camDownloadAtUrl   = "{{ url_for('main.camera_download_at') }}";
+    const camTimelapseUrl    = "{{ url_for('main.camera_timelapse_mp4') }}";
 </script>
 <script src="{{ url_for('static', filename='scripts/main2.js') }}"></script>
+<script src="{{ url_for('static', filename='scripts/camera.js') }}"></script>
 {% endblock %}

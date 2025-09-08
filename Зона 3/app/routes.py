@@ -8,6 +8,16 @@ from collections import defaultdict
 import logging
 from functools import wraps
 
+# === КАМЕРА: импорты ===
+import cv2, glob, os
+import datetime as dt
+from flask import send_file
+from werkzeug.exceptions import abort
+
+# Для np_from_file
+import numpy as np
+# === КАМЕРА: импорты ===
+
 bp = Blueprint('main', __name__)
 
 # Настройка логгера
@@ -23,6 +33,126 @@ def admin_required(f):
             return redirect(url_for('main.login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# === КАМЕРА: вспомогалки ===
+def _cam_save_dir():
+    return current_app.config["CAMERA_SAVE_DIR"]
+
+def _cam_tmp_dir():
+    return current_app.config["CAMERA_TIMELAPSE_TMP"]
+
+def _cam_rtsp():
+    return current_app.config["CAMERA_RTSP_URL"]
+
+def _cam_max_w():
+    return int(current_app.config["CAMERA_MAX_PREVIEW_W"])
+
+def _cam_jpeg_q():
+    return int(current_app.config["CAMERA_JPEG_QUALITY"])
+
+def _cam_codec():
+    return current_app.config["CAMERA_TIMELAPSE_CODEC"]
+
+def _now():
+    return dt.datetime.now()
+
+def _ts_to_name(ts: dt.datetime) -> str:
+    return ts.strftime("%Y%m%d_%H%M%S") + f"{int(ts.microsecond/1000):03d}.jpg"
+
+def _name_to_ts(fname: str):
+    base = os.path.basename(fname)
+    stem, ext = os.path.splitext(base)
+    if ext.lower() != ".jpg":
+        return None
+    try:
+        date_part, time_part = stem.split("_")
+        sec_dt = dt.datetime.strptime(date_part + "_" + time_part[:6], "%Y%m%d_%H%M%S")
+        ms = int(time_part[6:9]) if len(time_part) >= 9 else 0
+        return sec_dt + dt.timedelta(milliseconds=ms)
+    except Exception:
+        return None
+
+def _latest_image_path():
+    files = sorted(glob.glob(os.path.join(_cam_save_dir(), "*.jpg")))
+    return files[-1] if files else None
+
+def _find_nearest_image(target: dt.datetime):
+    files = sorted(glob.glob(os.path.join(_cam_save_dir(), "*.jpg")))
+    best, best_delta = None, None
+    for p in files:
+        ts = _name_to_ts(p)
+        if not ts:
+            continue
+        delta = abs((ts - target).total_seconds())
+        if best is None or delta < best_delta:
+            best, best_delta = p, delta
+    return best
+
+def _list_between(start_dt: dt.datetime, end_dt: dt.datetime):
+    files = sorted(glob.glob(os.path.join(_cam_save_dir(), "*.jpg")))
+    res = []
+    for p in files:
+        ts = _name_to_ts(p)
+        if ts and start_dt <= ts <= end_dt:
+            res.append(p)
+    return res
+
+def _parse_dt_local(s: str) -> dt.datetime:
+    if "T" not in s:
+        raise ValueError("Invalid datetime-local")
+    # 2025-09-08T11:30[:SS]
+    try:
+        if len(s) == 16:
+            return dt.datetime.strptime(s, "%Y-%m-%dT%H:%M")
+        elif len(s) == 19:
+            return dt.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+        else:
+            return dt.datetime.fromisoformat(s)
+    except Exception:
+        return dt.datetime.fromisoformat(s)
+
+def _save_frame(frame) -> str:
+    h, w = frame.shape[:2]
+    max_w = max(1, _cam_max_w())
+    if w > max_w:
+        scale = max_w / float(w)
+        frame = cv2.resize(frame, (int(w*scale), int(h*scale)), interpolation=cv2.INTER_AREA)
+    ts = _now()
+    out_path = os.path.join(_cam_save_dir(), _ts_to_name(ts))
+    cv2.imwrite(out_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), _cam_jpeg_q()])
+    return out_path
+
+def _np_from_file(path: str):
+    with open(path, "rb") as f:
+        data = f.read()
+    return np.frombuffer(data, dtype=np.uint8)
+
+def _build_timelapse(files, fps: int, out_path: str) -> bool:
+    if not files:
+        return False
+    first = cv2.imdecode(_np_from_file(files[0]), cv2.IMREAD_COLOR)
+    if first is None:
+        return False
+    h, w = first.shape[:2]
+    fourcc = cv2.VideoWriter_fourcc(*_cam_codec())
+    vw = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+    if not vw.isOpened():
+        return False
+    try:
+        vw.write(first)
+        for p in files[1:]:
+            img = cv2.imdecode(_np_from_file(p), cv2.IMREAD_COLOR)
+            if img is None:
+                continue
+            if img.shape[1] != w or img.shape[0] != h:
+                img = cv2.resize(img, (w, h), interpolation=cv2.INTER_AREA)
+            vw.write(img)
+    finally:
+        vw.release()
+    return True
+# === КАМЕРА: вспомогалки ===
+
+
 
 @bp.route('/')
 @bp.route('/index')
@@ -627,3 +757,110 @@ def control():
     ]
     default_date = datetime.now().strftime('%Y-%m-%d')
     return render_template('control.html', lines=lines, default_date=default_date, title='Контроль посадки')
+
+# === КАМЕРА: роуты ===
+
+@bp.route('/camera/latest_info')
+@login_required
+def camera_latest_info():
+    p = _latest_image_path()
+    if not p:
+        abort(404, description="Нет кадров")
+    ts = _name_to_ts(p)
+    iso = ts.replace(microsecond=0).isoformat() if ts else _now().replace(microsecond=0).isoformat()
+    return jsonify({"filename": os.path.basename(p), "iso": iso})
+
+@bp.route('/camera/latest.jpg')
+@login_required
+def camera_latest_jpg():
+    p = _latest_image_path()
+    if not p:
+        abort(404, description="Нет кадров в архиве")
+    return send_file(p, mimetype="image/jpeg", conditional=True)
+
+@bp.route('/camera/download_latest')
+@login_required
+def camera_download_latest():
+    p = _latest_image_path()
+    if not p:
+        abort(404, description="Нет кадров")
+    return send_file(p, mimetype="image/jpeg", as_attachment=True, download_name="latest.jpg", conditional=True)
+
+@bp.route('/camera/image_at')
+@login_required
+def camera_image_at():
+    dt_str = request.args.get("dt", "")
+    if not dt_str:
+        abort(400, description="Параметр dt обязателен")
+    target = _parse_dt_local(dt_str)
+    p = _find_nearest_image(target)
+    if not p:
+        abort(404, description="Подходящих кадров не найдено")
+    return send_file(p, mimetype="image/jpeg", conditional=True)
+
+@bp.route('/camera/download_at')
+@login_required
+def camera_download_at():
+    dt_str = request.args.get("dt", "")
+    if not dt_str:
+        abort(400, description="Параметр dt обязателен")
+    target = _parse_dt_local(dt_str)
+    p = _find_nearest_image(target)
+    if not p:
+        abort(404, description="Подходящих кадров не найдено")
+    name = f"frame_{dt_str.replace(':','-').replace('T','_')}.jpg"
+    return send_file(p, mimetype="image/jpeg", as_attachment=True, download_name=name, conditional=True)
+
+@bp.route('/camera/capture_now', methods=['POST'])
+@login_required
+def camera_capture_now():
+    # Делает единичный снимок напрямую через RTSP (не зависит от сервиса автосъёмки)
+    # Минимизируем задержки у ffmpeg-бекенда
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+        "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|reorder_queue_size;0|stimeout;5000000"
+    )
+    cap = cv2.VideoCapture(_cam_rtsp(), cv2.CAP_FFMPEG)
+    if not cap.isOpened():
+        abort(500, description="Камера недоступна")
+    try:
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        for _ in range(15):
+            cap.read()
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            abort(500, description="Не удалось получить кадр")
+        path = _save_frame(frame)
+    finally:
+        try: cap.release()
+        except: pass
+    return jsonify({"ok": True, "filename": os.path.basename(path)})
+
+@bp.route('/camera/timelapse.mp4')
+@login_required
+def camera_timelapse_mp4():
+    s = request.args.get("start", "")
+    e = request.args.get("end", "")
+    fps = int(request.args.get("fps", "20"))
+    dl = request.args.get("dl", "0") == "1"
+
+    if not s or not e:
+        abort(400, description="Нужны start и end")
+
+    start_dt = _parse_dt_local(s)
+    end_dt = _parse_dt_local(e)
+    if end_dt < start_dt:
+        start_dt, end_dt = end_dt, start_dt
+
+    files = _list_between(start_dt, end_dt)
+    if not files:
+        abort(404, description="Кадров за указанный период нет")
+
+    fname = f"timelapse_{s.replace(':','-').replace('T','_')}_to_{e.replace(':','-').replace('T','_')}_{fps}fps.mp4"
+    out_path = os.path.join(_cam_tmp_dir(), fname)
+    os.makedirs(_cam_tmp_dir(), exist_ok=True)
+
+    ok = _build_timelapse(files, fps, out_path)
+    if not ok or not os.path.exists(out_path):
+        abort(500, description="Не удалось собрать клип")
+
+    return send_file(out_path, mimetype="video/mp4", as_attachment=dl, download_name=fname, conditional=True)
