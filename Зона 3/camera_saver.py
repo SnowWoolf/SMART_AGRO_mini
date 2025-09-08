@@ -4,6 +4,9 @@ import cv2
 import datetime as dt
 from dotenv import load_dotenv
 
+from pathlib import Path
+import numpy as np
+
 # грузим .env
 load_dotenv()
 
@@ -39,13 +42,42 @@ def name_to_ts(fname: str):
     except: return None
 
 def save_frame(frame):
+    out_dir = Path(SAVE_DIR)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    ts_name = ts_to_name(now())
+    path = out_dir / ts_name
+    tmp_path = out_dir / (ts_name + ".part")
+
+    # ресайз при необходимости
     h, w = frame.shape[:2]
     if w > MAX_W:
         scale = MAX_W / float(w)
         frame = cv2.resize(frame, (int(w*scale), int(h*scale)), interpolation=cv2.INTER_AREA)
-    path = os.path.join(SAVE_DIR, ts_to_name(now()))
-    cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_Q])
-    return path
+
+    # кодируем jpg в память и пишем обычным open() — устойчиво к Unicode-путям
+    ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_Q])
+    if not ok:
+        raise RuntimeError("cv2.imencode('.jpg', ...) вернул False")
+
+    try:
+        with open(tmp_path, "wb") as f:
+            f.write(buf.tobytes())
+        os.replace(tmp_path, path)  # атомарно
+    finally:
+        # вдруг что-то пошло не так
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except:
+                pass
+
+    # доп. проверка
+    if not path.exists():
+        raise FileNotFoundError(f"Файл не появился на диске: {path}")
+
+    return str(path)
+
 
 def retention_cleanup():
     cutoff = now() - dt.timedelta(days=RETAIN_DAYS)
@@ -81,7 +113,8 @@ def run():
                 continue
 
             path = save_frame(frame)
-            print("Сохранён:", path)
+            print("Сохранён:", str(path))
+            print("exists:", os.path.exists(path))
 
             if time.time() - last_cleanup > 3600:
                 retention_cleanup()

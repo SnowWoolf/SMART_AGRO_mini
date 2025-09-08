@@ -16,6 +16,12 @@ from werkzeug.exceptions import abort
 
 # Для np_from_file
 import numpy as np
+
+from dotenv import load_dotenv
+load_dotenv()  # чтобы os.getenv видел значения из .env при запуске через IDE/uwsgi/gunicorn
+
+from pathlib import Path
+
 # === КАМЕРА: импорты ===
 
 bp = Blueprint('main', __name__)
@@ -35,23 +41,27 @@ def admin_required(f):
     return decorated_function
 
 # === КАМЕРА: вспомогалки ===
+def _abs(p: str) -> str:
+    # не требует существования пути
+    return str(Path(p).expanduser().resolve(strict=False))
+
 def _cam_save_dir():
-    return current_app.config["CAMERA_SAVE_DIR"]
+    return _abs(os.getenv("CAMERA_SAVE_DIR", "./camera_archive"))
 
 def _cam_tmp_dir():
-    return current_app.config["CAMERA_TIMELAPSE_TMP"]
+    return _abs(os.getenv("CAMERA_TIMELAPSE_TMP", "./tmp"))
 
-def _cam_rtsp():
-    return current_app.config["CAMERA_RTSP_URL"]
+def _cam_rtsp() -> str:
+    return os.getenv("CAMERA_RTSP_URL", "rtsp://admin:admin123@192.168.202.229:554/live/ch00_0")
 
 def _cam_max_w():
-    return int(current_app.config["CAMERA_MAX_PREVIEW_W"])
+    return int(os.getenv("CAMERA_MAX_PREVIEW_W", "1280"))
 
 def _cam_jpeg_q():
-    return int(current_app.config["CAMERA_JPEG_QUALITY"])
+    return int(os.getenv("CAMERA_JPEG_QUALITY", "90"))
 
 def _cam_codec():
-    return current_app.config["CAMERA_TIMELAPSE_CODEC"]
+    return os.getenv("CAMERA_TIMELAPSE_CODEC", "mp4v")
 
 def _now():
     return dt.datetime.now()
@@ -112,15 +122,39 @@ def _parse_dt_local(s: str) -> dt.datetime:
         return dt.datetime.fromisoformat(s)
 
 def _save_frame(frame) -> str:
+    out_dir = Path(_cam_save_dir())
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    ts = _now()
+    fname = _ts_to_name(ts)
+    path = out_dir / fname
+    tmp  = out_dir / (fname + ".part")
+
+    # ресайз
     h, w = frame.shape[:2]
     max_w = max(1, _cam_max_w())
     if w > max_w:
         scale = max_w / float(w)
-        frame = cv2.resize(frame, (int(w*scale), int(h*scale)), interpolation=cv2.INTER_AREA)
-    ts = _now()
-    out_path = os.path.join(_cam_save_dir(), _ts_to_name(ts))
-    cv2.imwrite(out_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), _cam_jpeg_q()])
-    return out_path
+        frame = cv2.resize(frame, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+    # безопасная запись через imencode + os.replace (устойчиво к кириллице/пробелам)
+    ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), _cam_jpeg_q()])
+    if not ok:
+        abort(500, description="Не удалось закодировать кадр в JPEG")
+
+    try:
+        with open(tmp, "wb") as f:
+            f.write(buf.tobytes())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            try: tmp.unlink()
+            except: pass
+
+    if not path.exists():
+        abort(500, description=f"Файл не появился на диске: {path}")
+
+    return str(path)
 
 def _np_from_file(path: str):
     with open(path, "rb") as f:
@@ -814,14 +848,19 @@ def camera_download_at():
 @bp.route('/camera/capture_now', methods=['POST'])
 @login_required
 def camera_capture_now():
-    # Делает единичный снимок напрямую через RTSP (не зависит от сервиса автосъёмки)
-    # Минимизируем задержки у ffmpeg-бекенда
+    # Отключаем ручной снимок, если нужно, через .env
+    if os.getenv("CAMERA_ENABLE_CAPTURE_NOW", "true").lower() != "true":
+        abort(403, description="Ручной снимок отключён")
+
+    # минимальные задержки для ffmpeg-бекенда
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
         "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|reorder_queue_size;0|stimeout;5000000"
     )
+
     cap = cv2.VideoCapture(_cam_rtsp(), cv2.CAP_FFMPEG)
     if not cap.isOpened():
         abort(500, description="Камера недоступна")
+
     try:
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         for _ in range(15):
@@ -829,11 +868,18 @@ def camera_capture_now():
         ok, frame = cap.read()
         if not ok or frame is None:
             abort(500, description="Не удалось получить кадр")
-        path = _save_frame(frame)
+        path = _save_frame(frame)  # ваш helper сохранения в архив
     finally:
         try: cap.release()
         except: pass
-    return jsonify({"ok": True, "filename": os.path.basename(path)})
+
+    return jsonify({
+        "ok": True,
+        "filename": os.path.basename(path),
+        "path": path,
+        "exists": os.path.exists(path),
+        "save_dir": _cam_save_dir()
+    })
 
 @bp.route('/camera/timelapse.mp4')
 @login_required

@@ -79,7 +79,7 @@ nav ul li:last-child {
 }
 
 .container_log {
-    max-width: 500px;
+    max-width: 600px;
     margin: 0 auto;
     padding: 20px;
     background-color: #fff;
@@ -467,3 +467,59 @@ tr:hover {
     100% { opacity: 1; }
 }
 
+/* === Camera block (локальные переопределения) === */
+#camera-block .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0;
+}
+
+/* Делаем картинку адаптивной и без “ломающегося” размера */
+#camera-block img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    margin: 8px 0;
+}
+
+/* Внутри блока камеры кнопки должны подстраиваться по ширине контента */
+#camera-block .btn {
+    width: auto;              /* переопределяем глобальную width:150px; только здесь */
+    white-space: nowrap;
+}
+
+/* Поля даты — фиксируем удобную ширину */
+#camera-block .control-date {
+    min-width: 220px;
+}
+
+/* Поле FPS — компактное */
+#camera-block .form-control {
+    width: 120px;             /* fps-инпут; компактный */
+    display: inline-block;
+}
+
+/* Надписи рядом с полями чуть компактнее */
+#camera-block .parameter-name {
+    margin: 0 4px;
+    font-size: 16px;
+}
+
+/* Опционально: если в разметке встречается .btn-primary, зададим вид (в твоём CSS нет) */
+.btn-primary {
+    background-color: var(--primary-color);
+}
+.btn-primary:hover {
+    background-color: var(--primary-color-hover);
+}
+
+/* Мобильные доработки — кнопки/поля в столбик */
+@media (max-width: 768px) {
+    #camera-block .controls { gap: 6px; }
+    #camera-block .btn { width: 100%; }
+    #camera-block .control-date { min-width: 0; width: 100%; }
+    #camera-block .form-control { width: 100%; }
+}
