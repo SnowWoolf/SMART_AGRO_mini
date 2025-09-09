@@ -18,12 +18,19 @@ RETAIN_DAYS = float(os.getenv("CAMERA_RETAIN_DAYS", "14"))
 MAX_W       = int(os.getenv("CAMERA_MAX_PREVIEW_W", "1280"))
 JPEG_Q      = int(os.getenv("CAMERA_JPEG_QUALITY", "90"))
 
+# Новые (опционально в .env):
+RTSP_TRANSPORT = os.getenv("CAMERA_RTSP_TRANSPORT", "tcp")  # tcp | udp
+WARMUP_MS      = int(os.getenv("CAMERA_WARMUP_MS", "700"))  # сколько «прожигать» поток после открытия
+
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # минимизация задержек у ffmpeg-бекенда opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
-    "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|reorder_queue_size;0|stimeout;5000000"
+    f"rtsp_transport;{RTSP_TRANSPORT}|"
+    "fflags;nobuffer|flags;low_delay|reorder_queue_size;0|"
+    "stimeout;5000000|rw_timeout;10000000|max_delay;0"
 )
+
 
 def now(): return dt.datetime.now()
 
@@ -87,34 +94,56 @@ def retention_cleanup():
             try: os.remove(p)
             except: pass
 
+# ====== BEGIN PATCH: per-shot grab ======
+def grab_fresh_frame():
+    """
+    Открываем RTSP, быстро «прожигаем» поток, берём последний кадр и закрываем.
+    Это гарантирует свежесть кадра, даже если между снимками большие паузы.
+    """
+    cap = cv2.VideoCapture(RTSP, cv2.CAP_FFMPEG)
+    if not cap.isOpened():
+        return None
+
+    try:
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        # Прожигаем поток по времени (WARMUP_MS) и/или по количеству кадров
+        t0 = time.time()
+        last = None
+        reads = 0
+        while (time.time() - t0) * 1000 < WARMUP_MS and reads < 60:
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                break
+            last = frame
+            reads += 1
+
+        # На всякий — пара дополнительных чтений
+        for _ in range(3):
+            ok, frame = cap.read()
+            if ok and frame is not None:
+                last = frame
+
+        return last
+    finally:
+        try:
+            cap.release()
+        except:
+            pass
+# ====== END PATCH ======
+
 def run():
-    cap = None
     last_cleanup = 0.0
     while True:
         try:
-            if cap is None:
-                cap = cv2.VideoCapture(RTSP, cv2.CAP_FFMPEG)
-                if not cap.isOpened():
-                    print("RTSP недоступен, повтор через 5с")
-                    cap.release(); cap = None
-                    time.sleep(5)
-                    continue
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                for _ in range(15):
-                    cap.read()
-
-            ok, frame = cap.read()
-            if not ok or frame is None:
-                print("Нет кадра, переподключение…")
-                try: cap.release()
-                except: pass
-                cap = None
-                time.sleep(2)
+            frame = grab_fresh_frame()
+            if frame is None:
+                print("Камера недоступна, повтор через 5с")
+                time.sleep(5)
                 continue
 
             path = save_frame(frame)
-            print("Сохранён:", str(path))
-            print("exists:", os.path.exists(path))
+            print("Сохранён:", path, "exists:", os.path.exists(path))
 
             if time.time() - last_cleanup > 3600:
                 retention_cleanup()
@@ -127,9 +156,7 @@ def run():
         except Exception as e:
             print("Ошибка:", e)
             time.sleep(3)
-    if cap is not None:
-        try: cap.release()
-        except: pass
+
 
 if __name__ == "__main__":
     run()
