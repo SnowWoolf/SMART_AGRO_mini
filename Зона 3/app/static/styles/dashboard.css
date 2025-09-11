@@ -396,3 +396,11 @@ nav ul li a[data-active="true"]{
 @media (max-width: 700px){
   .mixing-grid{ grid-template-columns: 1fr; }
 }
+
+/* Заголовок камеры (имя полки) */
+.cam-header{
+  padding:8px 10px;
+  border-bottom:1px solid var(--border);
+  background:#f9fafb;
+  font-weight:600; font-size:14px; color:#111827;
+}
