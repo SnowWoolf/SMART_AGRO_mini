@@ -1,321 +1,364 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="main-wrapper">
-    <div class="container_log">
-        <!-- Информация -->
-        <div class="parameter-container">
-            <h2>Информация о событиях фермы</h2>
-            <div class="log-container">
-                {% if logs_info %}
-                    <ul class="log-list">
-                        {% for log in logs_info %}
-                            <li>{{ (log.timestamp).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>Нет информационных сообщений.</p>
-                {% endif %}
-            </div>
+
+<div class="layout">
+
+
+  <!-- ===== ЦЕНТРАЛЬНАЯ КОЛОНКА ===== -->
+  <div class="col-center">
+    <div class="stack">
+
+      <!-- КНОПКИ-ИСПОЛНИТЕЛИ -->
+      <div class="card">
+        <h2>Управление</h2>
+        <div class="controls-grid">
+          <!-- сохраняем id и onclick -->
+            <button id="nasos" class="status-button" onclick="toggleParameter('Насос')" {% if current_user.username != 'admin' %}disabled{% endif %}>Насос</button>
+            <button id="peremesh" class="status-button" onclick="toggleParameter('Перемешивание')" {% if current_user.username != 'admin' %}disabled{% endif %}>Перемешивание</button>
+            <button id="napolnit" class="status-button" onclick="toggleParameter('Наполнение')" {% if current_user.username != 'admin' %}disabled{% endif %}>Наполнение</button>
+            <button id="sliv" class="status-button" onclick="toggleParameter('Слив')" {% if current_user.username != 'admin' %}disabled{% endif %}>Слив</button>
+            <button id="mixing" class="status-button" onclick="toggleParameter('Растворный узел')" {% if current_user.username != 'admin' %}disabled{% endif %}>Растворный узел</button>
+            <button id="mode_param" class="status-button" onclick="toggleParameter('Режим эксплуатации')" {% if current_user.username != 'admin' %}disabled{% endif %}>Режим эксплуатации</button>
         </div>
-        <div class="parameter-container">
-            <h2>Аварийные события</h2>
-            <div class="log-container">
-                {% if logs_errors %}
-                    <ul class="log-list">
-                        {% for log in logs_errors %}
-                            <li>{{ (log.timestamp).strftime('%d.%m.%Y %H:%M:%S') }} {{ log.message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>Нет аварийных сообщений.</p>
-                {% endif %}
-            </div>
+      </div>
+      <div class="card">
+        <h2>Полив</h2>
+        <div class="controls-grid">
+          <button id="polka1" class="status-button" onclick="toggleParameter('Полка 1')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 1</button>
+          <button id="polka2" class="status-button" onclick="toggleParameter('Полка 2')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 2</button>
+          <button id="polka3" class="status-button" onclick="toggleParameter('Полка 3')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 3</button>
+          <button id="polka4" class="status-button" onclick="toggleParameter('Полка 4')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 4</button>
         </div>
+      </div>
+
+      <!-- СВЕТ: ЯРКОСТИ/КАНАЛЫ -->
+      <div class="card">
+        <h2>Освещение</h2>
+        <div class="controls-grid controls-grid--pairs">
+          <!-- Белый -->
+            <button id="svet1" class="status-button" onclick="toggleParameter('Свет 12')" {% if current_user.username != 'admin' %}disabled{% endif %}>Освещение Полка 1 и 2</button>
+            <button id="svet2" class="status-button" onclick="toggleParameter('Свет 34')" {% if current_user.username != 'admin' %}disabled{% endif %}>Освещение Полка 3 и 4</button>
+            <div class="control-pair">
+              <button id="level_1_1_white"
+                      class="btn value-btn"
+                      onclick="openModal('ЯРКОСТЬ 1 БЕЛЫЙ')"
+                      {% if current_user.username != 'admin' %}disabled{% endif %}>0</button>
+
+              <button id="chanel_1_1_white"
+                      class="btn"
+                      onclick="toggleParameter('КАНАЛ 1 БЕЛЫЙ')"
+                      {% if current_user.username != 'admin' %}disabled{% endif %}>Канал 1 белый</button>
+            </div>
+
+            <!-- Красный -->
+            <div class="control-pair">
+              <button id="level_1_1_red"
+                      class="btn value-btn"
+                      onclick="openModal('ЯРКОСТЬ 1 КРАСНЫЙ')"
+                      {% if current_user.username != 'admin' %}disabled{% endif %}>0</button>
+
+              <button id="chanel_1_1_red"
+                      class="btn"
+                      onclick="toggleParameter('КАНАЛ 1 КРАСНЫЙ')"
+                      {% if current_user.username != 'admin' %}disabled{% endif %}>Канал 1 красный</button>
+            </div>
+
+        </div>
+
+        <!-- Модалка диммирования (сохраняем id) -->
+        <div id="valueModal" class="modal">
+          <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Диммирование выбранным каналом</h2>
+            <input type="hidden" id="parameter-name">
+            <div class="form-group">
+              <label for="parameter-value">Значение яркости, %</label>
+              <input type="number" id="parameter-value" class="form-control" placeholder="0–100">
+            </div>
+            <button type="button" class="btn" onclick="setValue()">Записать</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ПОКАЗАТЕЛИ / УРОВНИ -->
+      <div class="card">
+        <h2>Показатели и уровни</h2>
+        <div class="param-grid">
+
+          <table class="table">
+            <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
+            <tbody>
+              <tr><td>Уровень PH</td><td id="UNIT_ID_PH">{{ parameters_dict['Уровень PH'] }}</td></tr>
+              <tr><td>Уровень EC</td><td id="UNIT_ID_EC">{{ parameters_dict['Уровень EC'] }}</td></tr>
+            </tbody>
+          </table>
+
+          <table class="table">
+            <thead><tr><th>Подача</th><th>Статус</th><th>Время</th></tr></thead>
+            <tbody>
+              <tr><td>А для EC</td><td id="statusA">откл</td><td id="timeA">{{ parameters_dict['Время подачи А в бак'] }}</td></tr>
+              <tr><td>В для EC</td><td id="statusB">откл</td><td id="timeB">{{ parameters_dict['Время подачи В в бак'] }}</td></tr>
+              <tr><td>Кислота для PH</td><td id="statusK">откл</td><td id="timeK">{{ parameters_dict['Время подачи К в бак'] }}</td></tr>
+            </tbody>
+          </table>
+
+          <table class="table">
+            <thead><tr><th>Уровень бака</th><th>Состояние</th></tr></thead>
+            <tbody>
+              <tr><td>Верхний</td><td><div id="level-1" class="indicator-wrapper"><div id="indicator-level-1" class="status-indicator"></div></div></td></tr>
+              <tr><td>Середина</td><td><div id="level-2" class="indicator-wrapper"><div id="indicator-level-2" class="status-indicator"></div></div></td></tr>
+              <tr><td>Нижний</td><td><div id="level-3" class="indicator-wrapper"><div id="indicator-level-3" class="status-indicator"></div></div></td></tr>
+            </tbody>
+          </table>
+
+          <table class="table">
+            <thead><tr><th>Уровень А</th><th>Состояние</th></tr></thead>
+            <tbody>
+              <tr><td>Максимум</td><td><div id="level-A1" class="indicator-wrapper"><div id="indicator-level-A1" class="status-indicator"></div></div></td></tr>
+              <tr><td>Минимум</td><td><div id="level-A2" class="indicator-wrapper"><div id="indicator-level-A2" class="status-indicator"></div></div></td></tr>
+            </tbody>
+          </table>
+
+          <table class="table">
+            <thead><tr><th>Уровень B</th><th>Состояние</th></tr></thead>
+            <tbody>
+              <tr><td>Максимум</td><td><div id="level-B1" class="indicator-wrapper"><div id="indicator-level-B1" class="status-indicator"></div></div></td></tr>
+              <tr><td>Минимум</td><td><div id="level-B2" class="indicator-wrapper"><div id="indicator-level-B2" class="status-indicator"></div></div></td></tr>
+            </tbody>
+          </table>
+
+          <table class="table">
+            <thead><tr><th>Уровень кислоты</th><th>Состояние</th></tr></thead>
+            <tbody>
+              <tr><td>Максимум</td><td><div id="level-K1" class="indicator-wrapper"><div id="indicator-level-K1" class="status-indicator"></div></div></td></tr>
+              <tr><td>Минимум</td><td><div id="level-K2" class="indicator-wrapper"><div id="indicator-level-K2" class="status-indicator"></div></div></td></tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+
     </div>
-    <div class="container">
-        <div class="row-container">
+  </div>
 
-            <div class="parameter-container">
+  <!-- ===== ПРАВАЯ КОЛОНКА: КАМЕРЫ (до 4 штук) ===== -->
+  <div class="col-right">
+    <div class="cameras card">
+      <h2>Камеры</h2>
 
-                 <span class="parameter-name">Наполнение водой</span>
-                <button id="napolnit" class="status-button"
-                        onclick="toggleParameter('Наполнение')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-                <span class="parameter-name">Перемешивание</span>
-                <button id="peremesh" class="status-button"
-                        onclick="toggleParameter('Перемешивание')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-                <span class="parameter-name">Слив раствора</span>
-                <button id="sliv" class="status-button"
-                        onclick="toggleParameter('Слив')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-                <span class="parameter-name">Насос</span>
-                <button id="nasos" class="status-button"
-                        onclick="toggleParameter('Насос')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Полив на полку 1</span>
-                <button id="polka1" class="status-button"
-                        onclick="toggleParameter('Полка 1')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Полив на полку 2</span>
-                <button id="polka2" class="status-button"
-                        onclick="toggleParameter('Полка 2')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Полив на полку 3</span>
-                <button id="polka3" class="status-button"
-                        onclick="toggleParameter('Полка 3')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Полив на полку 4</span>
-                <button id="polka4" class="status-button"
-                        onclick="toggleParameter('Полка 4')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-
+        <div id="camFrameModal" class="modal" style="display:none">
+          <div class="modal-content">
+            <span class="close" onclick="document.getElementById('camFrameModal').style.display='none'">&times;</span>
+            <h2>Показать кадр на дату/время</h2>
+            <input type="hidden" id="cam_frame_modal_camid" value="">
+            <div class="form-group">
+              <label for="cam_frame_dt">Дата и время</label>
+              <input type="datetime-local" id="cam_frame_dt" class="form-control">
             </div>
-            <div class="parameter-container">
-                <span class="parameter-name">Свет БЕЛЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_1_1_white" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_1_1_white" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ 1 БЕЛЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <!-- Модальное окно -->
-                        <div id="valueModal" class="modal">
-                            <div class="modal-content">
-                                <span class="close" onclick="closeModal()">&times;</span>
-                                <h2>Диммирование выбранным каналом</h2>
-                                <form>
-                                    <input type="hidden" id="parameter-name">
-                                    <div class="form-group">
-                                        <label for="parameter-value">Введите значение яркости в %</label>
-                                        <input type="number" id="parameter-value" class="form-control" placeholder="Введите значение">
-                                    </div>
-                                    <button type="button" class="btn btn-primary" onclick="setValue()">Записать</button>
-                                </form>
-                            </div>
-                        </div>
-                    </tr>
-                </table>
-                <span class="parameter-name">Свет КРАСНЫЙ</span>
-                <table>
-                    <tr>
-                        <th>%</th>
-                        <td>
-                            <button id="level_1_1_red" class="btn btn-primary"
-                                    onclick="openModal('ЯРКОСТЬ 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                        <td>
-                            <button id="chanel_1_1_red" class="btn btn-primary"
-                                    onclick="toggleParameter('КАНАЛ 1 КРАСНЫЙ')"
-                                    {% if current_user.username != 'admin' %} disabled {% endif %}>
-                            </button>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name"> </span>
-                <span class="parameter-name">==============</span>
-                <span class="parameter-name">Режим эксплуатации</span>
-                <button id="mode_param" class="status-button"
-                        onclick="toggleParameter('Режим эксплуатации')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-                <span class="parameter-name"> </span>
-                <span class="parameter-name">==============</span>
-                <span class="parameter-name">Растворный узел</span>
-                <button id="mixing" class="status-button"
-                        onclick="toggleParameter('Растворный узел')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Свет полки 1 и 2</span>
-                <button id="svet1" class="status-button"
-                        onclick="toggleParameter('Свет 12')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
-
-                <span class="parameter-name">Свет полки 3 и 4</span>
-                <button id="svet2" class="status-button"
-                        onclick="toggleParameter('Свет 34')"
-                        {% if current_user.username != 'admin' %} disabled {% endif %}>
-                </button>
+            <div class="form-group">
+              <button id="cam_frame_show" class="btn">Показать</button>
+              <a id="cam_frame_download" class="btn ghost" href="#" download>Скачать</a>
             </div>
-
-            <div class="parameter-container">
-                <span class="parameter-name">Показатели</span>
-                <table>
-                    <tr>
-                        <th>Уровень PH</th>
-                        <td id="UNIT_ID_PH">{{ parameters_dict['Уровень PH'] }}</td>
-                    </tr>
-                    <tr>
-                        <th>Уровень EC</th>
-                        <td id="UNIT_ID_EC">{{ parameters_dict['Уровень EC'] }}</td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Подача компонентов</span>
-                <table>
-                    <tr>
-                        <th>А для EC</th>
-                        <td id="statusA">откл</td>
-                        <td id="timeA">{{ parameters_dict['Время подачи А в бак'] }}</td>
-                    </tr>
-                    <tr>
-                        <th>В для EC</th>
-                        <td id="statusB">откл</td>
-                        <td id="timeB">{{ parameters_dict['Время подачи В в бак'] }}</td>
-                    </tr>
-                    <tr>
-                        <th>Кислота для PH</th>
-                        <td id="statusK">откл</td>
-                        <td id="timeK">{{ parameters_dict['Время подачи К в бак'] }}</td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Уровень БАКА</span>
-                <table>
-                    <tr>
-                        <th>Верхний</th>
-                        <td id="level-1" class="indicator-wrapper">
-                              <div id="indicator-level-1" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Середина</th>
-                        <td id="level-2" class="indicator-wrapper">
-                                <div id="indicator-level-2" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Нижний</th>
-                        <td id="level-3" class="indicator-wrapper">
-                                <div id="indicator-level-3" class="status-indicator"></div>
-                        </td>
-                    </tr>
-
-                </table>
-
-                <span class="parameter-name">Уровень компонент А</span>
-                <table>
-                    <tr>
-                        <th>Максимум</th>
-                        <td id="level-A1" class="indicator-wrapper">
-                            <div id="indicator-level-A1" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Минимум</th>
-                        <td id="level-A2" class="indicator-wrapper">
-                            <div id="indicator-level-A2" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Уровень компонент В</span>
-                <table>
-                    <tr>
-                        <th>Максимум</th>
-                        <td id="level-B1" class="indicator-wrapper">
-                            <div id="indicator-level-B1" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Минимум</th>
-                        <td id="level-B2" class="indicator-wrapper">
-                            <div id="indicator-level-B2" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                </table>
-                <span class="parameter-name">Уровень кислота</span>
-                <table>
-                    <tr>
-                        <th>Максимум</th>
-                        <td id="level-K1" class="indicator-wrapper">
-                            <div id="indicator-level-K1" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Минимум</th>
-                        <td id="level-K2" class="indicator-wrapper">
-                            <div id="indicator-level-K2" class="status-indicator"></div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+          </div>
         </div>
-    </div>
-    <div class="container_log">
-            <!-- === КАМЕРА ФЕРМЫ === -->
-        <div class="parameter-container" id="camera-block">
-          <h2>Камера фермы</h2>
+        <div id="camTlModal" class="modal" style="display:none">
+          <div class="modal-content">
+            <span class="close" onclick="document.getElementById('camTlModal').style.display='none'">&times;</span>
+            <h2>Сохранить клип</h2>
+            <input type="hidden" id="cam_tl_modal_camid" value="">
+            <div class="form-group">
+              <label for="cam_tl_start">От</label>
+              <input type="datetime-local" id="cam_tl_start" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="cam_tl_end">До</label>
+              <input type="datetime-local" id="cam_tl_end" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="cam_tl_fps">FPS</label>
+              <input type="number" id="cam_tl_fps" class="form-control" min="1" max="60" value="20">
+            </div>
+            <div class="form-group">
+              <button id="cam_tl_save" class="btn">Сохранить клип</button>
+            </div>
+          </div>
+        </div>
 
-          <div class="controls">
-            <button id="cam_btn_latest" class="btn">Последний кадр</button>
-            <button id="cam_btn_fix" class="btn" {% if current_user.username != 'admin' %}disabled{% endif %}>
-              Зафиксировать текущий кадр
+
+
+      <!-- Сетка камер 2×2 -->
+      <div class="camera-grid">
+
+        <!-- Камера 1 (твоя текущая) -->
+        <div class="camera">
+          <img id="cam1_preview" class="frame" alt="Кадр камеры 1">
+
+          <div class="cam-actions">
+            <!-- обновить (последний кадр) -->
+            <button class="icon-btn tip" data-tip="Обновить" id="cam1_refresh">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-width="2" d="M21 12a9 9 0 1 1-3.7-7.3M21 3v6h-6"/>
+              </svg>
+            </button>
+
+            <!-- скачать текущий (последний/выбранный) -->
+            <a class="icon-btn tip" data-tip="Скачать" id="cam1_download" href="#" download>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-width="2" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+            </a>
+
+            <!-- сделать снимок -->
+            <button class="icon-btn tip" data-tip="Сделать снимок" id="cam1_capture" {% if current_user.username != 'admin' %}disabled{% endif %}>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-width="2" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4" stroke-width="2"/>
+              </svg>
+            </button>
+
+            <!-- история (кадр на дату/время) -->
+            <button class="icon-btn tip" data-tip="История" id="cam1_history">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-width="2" d="M3 12a9 9 0 1 0 9-9"/>
+                <path stroke-width="2" d="M3 3v6h6"/>
+                <path stroke-width="2" d="M12 7v5l3 3"/>
+              </svg>
+            </button>
+
+            <!-- timelapse -->
+            <button class="icon-btn tip" data-tip="Timelapse" id="cam1_timelapse">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke-width="2"/>
+                <polygon points="10,9 16,12 10,15" fill="currentColor"/>
+              </svg>
             </button>
           </div>
-          <div class="controls">
-            <a id="cam_btn_download_current" class="btn" href="#" download>Скачать (текущий)</a>
+        </div>
 
-            <span class="parameter-name">Дата-время:</span>
-            <input type="datetime-local" id="cam_dtview" class="control-date" />
-          </div>
-
-            <img id="cam_preview" alt="Кадр" />
-{#            <img id="cam_preview" alt="Кадр" style="max-width:250px; height:auto; border-radius:12px; display:block;"/>#}
-
-          <div class="controls">
-            <span class="parameter-name">начало</span>
-            <input type="datetime-local" id="cam_dtStart" class="control-date" />
-          </div>
-          <div class="controls">
-            <span class="parameter-name">конец</span>
-            <input type="datetime-local" id="cam_dtEnd" class="control-date" />
-          </div>
-          <div class="controls">
-            <span class="parameter-name">FPS</span>
-            <input type="number" id="cam_fps" min="1" max="60" value="20" class="form-control" style="width:120px;" />
-            <a id="cam_btn_download_timelapse" class="btn" href="#">Скачать клип</a>
+        <!-- Камера 2 -->
+        <div class="camera">
+          <img id="cam2_preview" class="frame" alt="Кадр камеры 2">
+          <div class="cam-actions">
+            <button class="icon-btn tip" data-tip="Обновить" id="cam2_refresh">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M21 12a9 9 0 1 1-3.7-7.3M21 3v6h-6"/></svg>
+            </button>
+            <a class="icon-btn tip" data-tip="Скачать" id="cam2_download" href="#" download>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </a>
+            <button class="icon-btn tip" data-tip="Сделать снимок" id="cam2_capture" {% if current_user.username != 'admin' %}disabled{% endif %}>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4" stroke-width="2"/></svg>
+            </button>
+            <button class="icon-btn tip" data-tip="История" id="cam2_history">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M3 12a9 9 0 1 0 9-9"/><path stroke-width="2" d="M3 3v6h6"/><path stroke-width="2" d="M12 7v5l3 3"/></svg>
+            </button>
+            <button class="icon-btn tip" data-tip="Timelapse" id="cam2_timelapse">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke-width="2"/><polygon points="10,9 16,12 10,15" fill="currentColor"/></svg>
+            </button>
           </div>
         </div>
-     </div>
-    <!-- === /КАМЕРА ФЕРМЫ === -->
 
+        <!-- Камера 3 -->
+        <div class="camera">
+          <img id="cam3_preview" class="frame" alt="Кадр камеры 3">
+          <div class="cam-actions">
+            <button class="icon-btn tip" data-tip="Обновить" id="cam3_refresh">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M21 12a9 9 0 1 1-3.7-7.3M21 3v6h-6"/></svg>
+            </button>
+            <a class="icon-btn tip" data-tip="Скачать" id="cam3_download" href="#" download>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </a>
+            <button class="icon-btn tip" data-tip="Сделать снимок" id="cam3_capture" {% if current_user.username != 'admin' %}disabled{% endif %}>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4" stroke-width="2"/></svg>
+            </button>
+            <button class="icon-btn tip" data-tip="История" id="cam3_history">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M3 12a9 9 0 1 0 9-9"/><path stroke-width="2" d="M3 3v6h6"/><path stroke-width="2" d="M12 7v5l3 3"/></svg>
+            </button>
+            <button class="icon-btn tip" data-tip="Timelapse" id="cam3_timelapse">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke-width="2"/><polygon points="10,9 16,12 10,15" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Камера 4 -->
+        <div class="camera">
+          <img id="cam4_preview" class="frame" alt="Кадр камеры 4">
+          <div class="cam-actions">
+            <button class="icon-btn tip" data-tip="Обновить" id="cam4_refresh">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M21 12a9 9 0 1 1-3.7-7.3M21 3v6h-6"/></svg>
+            </button>
+            <a class="icon-btn tip" data-tip="Скачать" id="cam4_download" href="#" download>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </a>
+            <button class="icon-btn tip" data-tip="Сделать снимок" id="cam4_capture" {% if current_user.username != 'admin' %}disabled{% endif %}>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4" stroke-width="2"/></svg>
+            </button>
+            <button class="icon-btn tip" data-tip="История" id="cam4_history">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M3 12a9 9 0 1 0 9-9"/><path stroke-width="2" d="M3 3v6h6"/><path stroke-width="2" d="M12 7v5l3 3"/></svg>
+            </button>
+            <button class="icon-btn tip" data-tip="Timelapse" id="cam4_timelapse">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2" ry="2" stroke-width="2"/><polygon points="10,9 16,12 10,15" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+
+
+      </div>
+    </div>
+  </div>
+  <!-- ===== ЛЕВАЯ КОЛОНКА: ЛОГИ ===== -->
+  <div class="col-left">
+    <div class="logs">
+      <div class="card log-box">
+        <h2>Информация о событиях фермы</h2>
+        <div class="log-scroll">
+          {% if logs_info %}
+            <ul class="log-list">
+              {% for log in logs_info %}
+                <li>
+                  <span class="log-time">{{ (log.timestamp).strftime('%d.%m.%Y %H:%M:%S') }}</span>
+                  <span>{{ log.message }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="caption">Нет информационных сообщений.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card log-box">
+        <h2>Аварийные события</h2>
+        <div class="log-scroll">
+          {% if logs_errors %}
+            <ul class="log-list">
+              {% for log in logs_errors %}
+                <li>
+                  <span class="log-time">{{ (log.timestamp).strftime('%d.%m.%Y %H:%M:%S') }}</span>
+                  <span>{{ log.message }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="caption">Нет аварийных сообщений.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- Роуты для JS -->
 <script>
-    const getParametersUrl = "{{ url_for('main.get_parameters') }}";
-    const toggleParameterUrl = "{{ url_for('main.toggle_parameter') }}";
-    const setParameterValueUrl = "{{ url_for('main.set_parameter_value') }}";
-    const camLatestInfoUrl   = "{{ url_for('main.camera_latest_info') }}";
-    const camLatestJpgUrl    = "{{ url_for('main.camera_latest_jpg') }}";
-    const camDownloadLatest  = "{{ url_for('main.camera_download_latest') }}";
-    const camCaptureNowUrl   = "{{ url_for('main.camera_capture_now') }}";
-    const camImageAtUrl      = "{{ url_for('main.camera_image_at') }}";
-    const camDownloadAtUrl   = "{{ url_for('main.camera_download_at') }}";
-    const camTimelapseUrl    = "{{ url_for('main.camera_timelapse_mp4') }}";
+  const getParametersUrl = "{{ url_for('main.get_parameters') }}";
+  const toggleParameterUrl = "{{ url_for('main.toggle_parameter') }}";
+  const setParameterValueUrl = "{{ url_for('main.set_parameter_value') }}";
+  const camLatestInfoUrl   = "{{ url_for('main.camera_latest_info') }}";
+  const camLatestJpgUrl    = "{{ url_for('main.camera_latest_jpg') }}";
+  const camDownloadLatest  = "{{ url_for('main.camera_download_latest') }}";
+  const camCaptureNowUrl   = "{{ url_for('main.camera_capture_now') }}";
+  const camImageAtUrl      = "{{ url_for('main.camera_image_at') }}";
+  const camDownloadAtUrl   = "{{ url_for('main.camera_download_at') }}";
+  const camTimelapseUrl    = "{{ url_for('main.camera_timelapse_mp4') }}";
 </script>
 <script src="{{ url_for('static', filename='scripts/main2.js') }}"></script>
 <script src="{{ url_for('static', filename='scripts/camera.js') }}"></script>

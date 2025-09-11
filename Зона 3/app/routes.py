@@ -45,13 +45,23 @@ def _abs(p: str) -> str:
     # не требует существования пути
     return str(Path(p).expanduser().resolve(strict=False))
 
-def _cam_save_dir():
+def _cam_save_dir(cam: int | None = None):
+    if cam:
+        env = os.getenv(f"CAMERA_SAVE_DIR_{cam}")
+        if env:
+            return _abs(env)
+        base = os.getenv("CAMERA_SAVE_DIR", "./camera_archive")
+        return _abs(os.path.join(base, f"cam{cam}"))
     return _abs(os.getenv("CAMERA_SAVE_DIR", "./camera_archive"))
 
 def _cam_tmp_dir():
     return _abs(os.getenv("CAMERA_TIMELAPSE_TMP", "./tmp"))
 
-def _cam_rtsp() -> str:
+def _cam_rtsp(cam: int | None = None) -> str:
+    if cam:
+        env = os.getenv(f"CAMERA_RTSP_URL_{cam}")
+        if env:
+            return env
     return os.getenv("CAMERA_RTSP_URL", "rtsp://admin:admin123@192.168.202.229:554/live/ch00_0")
 
 def _cam_max_w():
@@ -82,12 +92,12 @@ def _name_to_ts(fname: str):
     except Exception:
         return None
 
-def _latest_image_path():
-    files = sorted(glob.glob(os.path.join(_cam_save_dir(), "*.jpg")))
+def _latest_image_path(cam: int | None = None):
+    files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     return files[-1] if files else None
 
-def _find_nearest_image(target: dt.datetime):
-    files = sorted(glob.glob(os.path.join(_cam_save_dir(), "*.jpg")))
+def _find_nearest_image(target: dt.datetime, cam: int | None = None):
+    files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     best, best_delta = None, None
     for p in files:
         ts = _name_to_ts(p)
@@ -98,8 +108,8 @@ def _find_nearest_image(target: dt.datetime):
             best, best_delta = p, delta
     return best
 
-def _list_between(start_dt: dt.datetime, end_dt: dt.datetime):
-    files = sorted(glob.glob(os.path.join(_cam_save_dir(), "*.jpg")))
+def _list_between(start_dt: dt.datetime, end_dt: dt.datetime, cam: int | None = None):
+    files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     res = []
     for p in files:
         ts = _name_to_ts(p)
@@ -121,8 +131,8 @@ def _parse_dt_local(s: str) -> dt.datetime:
     except Exception:
         return dt.datetime.fromisoformat(s)
 
-def _save_frame(frame) -> str:
-    out_dir = Path(_cam_save_dir())
+def _save_frame(frame, cam: int | None = None) -> str:
+    out_dir = Path(_cam_save_dir(cam))
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ts = _now()
@@ -797,7 +807,8 @@ def control():
 @bp.route('/camera/latest_info')
 @login_required
 def camera_latest_info():
-    p = _latest_image_path()
+    cam = int(request.args.get('cam', '1'))
+    p = _latest_image_path(cam)
     if not p:
         abort(404, description="Нет кадров")
     ts = _name_to_ts(p)
@@ -807,7 +818,8 @@ def camera_latest_info():
 @bp.route('/camera/latest.jpg')
 @login_required
 def camera_latest_jpg():
-    p = _latest_image_path()
+    cam = int(request.args.get('cam', '1'))
+    p = _latest_image_path(cam)
     if not p:
         abort(404, description="Нет кадров в архиве")
     return send_file(p, mimetype="image/jpeg", conditional=True)
@@ -815,7 +827,8 @@ def camera_latest_jpg():
 @bp.route('/camera/download_latest')
 @login_required
 def camera_download_latest():
-    p = _latest_image_path()
+    cam = int(request.args.get('cam', '1'))
+    p = _latest_image_path(cam)
     if not p:
         abort(404, description="Нет кадров")
     return send_file(p, mimetype="image/jpeg", as_attachment=True, download_name="latest.jpg", conditional=True)
@@ -823,11 +836,12 @@ def camera_download_latest():
 @bp.route('/camera/image_at')
 @login_required
 def camera_image_at():
+    cam = int(request.args.get('cam', '1'))
     dt_str = request.args.get("dt", "")
     if not dt_str:
         abort(400, description="Параметр dt обязателен")
     target = _parse_dt_local(dt_str)
-    p = _find_nearest_image(target)
+    p = _find_nearest_image(target, cam)
     if not p:
         abort(404, description="Подходящих кадров не найдено")
     return send_file(p, mimetype="image/jpeg", conditional=True)
@@ -835,11 +849,12 @@ def camera_image_at():
 @bp.route('/camera/download_at')
 @login_required
 def camera_download_at():
+    cam = int(request.args.get('cam', '1'))
     dt_str = request.args.get("dt", "")
     if not dt_str:
         abort(400, description="Параметр dt обязателен")
     target = _parse_dt_local(dt_str)
-    p = _find_nearest_image(target)
+    p = _find_nearest_image(target, cam)
     if not p:
         abort(404, description="Подходящих кадров не найдено")
     name = f"frame_{dt_str.replace(':','-').replace('T','_')}.jpg"
@@ -848,6 +863,7 @@ def camera_download_at():
 @bp.route('/camera/capture_now', methods=['POST'])
 @login_required
 def camera_capture_now():
+    cam = int(request.args.get('cam', '1'))
     # Отключаем ручной снимок, если нужно, через .env
     if os.getenv("CAMERA_ENABLE_CAPTURE_NOW", "true").lower() != "true":
         abort(403, description="Ручной снимок отключён")
@@ -856,8 +872,8 @@ def camera_capture_now():
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
         "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|reorder_queue_size;0|stimeout;5000000"
     )
+    cap = cv2.VideoCapture(_cam_rtsp(cam), cv2.CAP_FFMPEG)
 
-    cap = cv2.VideoCapture(_cam_rtsp(), cv2.CAP_FFMPEG)
     if not cap.isOpened():
         abort(500, description="Камера недоступна")
 
@@ -868,7 +884,7 @@ def camera_capture_now():
         ok, frame = cap.read()
         if not ok or frame is None:
             abort(500, description="Не удалось получить кадр")
-        path = _save_frame(frame)  # ваш helper сохранения в архив
+        path = _save_frame(frame, cam)  # ваш helper сохранения в архив
     finally:
         try: cap.release()
         except: pass
@@ -884,6 +900,7 @@ def camera_capture_now():
 @bp.route('/camera/timelapse.mp4')
 @login_required
 def camera_timelapse_mp4():
+    cam = int(request.args.get('cam', '1'))
     s = request.args.get("start", "")
     e = request.args.get("end", "")
     fps = int(request.args.get("fps", "20"))
@@ -897,7 +914,8 @@ def camera_timelapse_mp4():
     if end_dt < start_dt:
         start_dt, end_dt = end_dt, start_dt
 
-    files = _list_between(start_dt, end_dt)
+    files = _list_between(start_dt, end_dt, cam)
+
     if not files:
         abort(404, description="Кадров за указанный период нет")
 

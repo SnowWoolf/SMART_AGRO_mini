@@ -1,16 +1,5 @@
-const buttonTexts = {
-
-    'Перемешивание': { on: 'Включен',   off: 'Выключен' },
-    'Насос':                { on: 'Включен',   off: 'Выключен' },
-    'Свет':     { on: 'Включен',   off: 'Выключен' },
-    'Полив':     { on: 'Включен',   off: 'Выключен' },
-    'Режим эксплуатации': { on: 'Включен', off: 'Выключен' },
-    'Растворный узел': { on: 'Включен', off: 'Выключен' },
-
-    'КАНАЛ 1 БЕЛЫЙ':  { on: 'on', off: 'off' },
-    'КАНАЛ 1 КРАСНЫЙ':{ on: 'on', off: 'off' },
-
-};
+// нормализуем "включено": сервер может прислать '1', '1.0' или 1
+const isOn = (v) => v === '1' || v === '1.0' || v === 1;
 
 async function updateData() {
     try {
@@ -18,22 +7,21 @@ async function updateData() {
         const data = await response.json();
 
         const updateButton = (id, key) => {
-            const btn = document.getElementById(id);
-            if (btn) {
-                const texts = buttonTexts[key] || { on: 'Включен', off: 'Выключен' };
-                btn.textContent = data[key] === '1' ? texts.on : texts.off;
-                btn.className = 'status-button ' + (data[key] === '1' ? 'on' : 'off');
-            }
-        };
-        const updateButton2 = (id, key) => {
-            const btn = document.getElementById(id);
-            if (btn) {
-                const texts = buttonTexts[key] || { on: 'Включен', off: 'Выключен' };
-                btn.textContent = data[key] === '1' ? texts.on : texts.off;
-                btn.className = 'btn ' + (data[key] === '1' ? 'on' : 'off');
-            }
-        };
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          const on = isOn(data[key]);
 
+          // меняем только состояние
+          btn.classList.toggle('on',  on);
+          btn.classList.toggle('off', !on);
+
+          // доступность/хуки
+          btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+          btn.dataset.state = on ? 'on' : 'off';
+
+          // опционально: подсказка состояния при наведении (текст кнопки не меняем)
+          btn.title = on ? 'вкл' : 'откл';
+        };
         const updateText = (id, key) => {
             const elem = document.getElementById(id);
             if (!elem) return;
@@ -79,19 +67,18 @@ async function updateData() {
             }
         };
 
-        // Новая функция для обновления графического индикатора в ячейке
         const updateBinaryIndicator = (id, key) => {
-            const indicator = document.getElementById(id);
-            if (indicator) {
-                if (data[key] === '1.0') {
-                    indicator.classList.remove('empty');
-                    indicator.classList.add('filled');
-                } else {
-                    indicator.classList.remove('filled');
-                    indicator.classList.add('empty');
-                }
-            }
+          const indicator = document.getElementById(id);
+          if (!indicator) return;
+          if (isOn(data[key])) {
+            indicator.classList.remove('empty');
+            indicator.classList.add('filled');
+          } else {
+            indicator.classList.remove('filled');
+            indicator.classList.add('empty');
+          }
         };
+
 
         updateButton('napolnit', 'Наполнение');
         updateButton('peremesh', 'Перемешивание');
@@ -108,9 +95,9 @@ async function updateData() {
         updateButton('mode_param', 'Режим эксплуатации');
         updateButton('mixing', 'Растворный узел');
 
-        updateButton2('chanel_1_1_white', 'КАНАЛ 1 БЕЛЫЙ');
+        updateButton('chanel_1_1_white', 'КАНАЛ 1 БЕЛЫЙ');
         updateText('level_1_1_white',    'ЯРКОСТЬ 1 БЕЛЫЙ');
-        updateButton2('chanel_1_1_red',   'КАНАЛ 1 КРАСНЫЙ');
+        updateButton('chanel_1_1_red',   'КАНАЛ 1 КРАСНЫЙ');
         updateText('level_1_1_red',      'ЯРКОСТЬ 1 КРАСНЫЙ');
 
         updateText2('UNIT_ID_PH', 'Уровень PH');
