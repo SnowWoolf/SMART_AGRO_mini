@@ -16,6 +16,8 @@ from werkzeug.exceptions import abort
 
 # Для np_from_file
 import numpy as np
+from typing import Optional
+
 
 from dotenv import load_dotenv
 load_dotenv()  # чтобы os.getenv видел значения из .env при запуске через IDE/uwsgi/gunicorn
@@ -45,7 +47,7 @@ def _abs(p: str) -> str:
     # не требует существования пути
     return str(Path(p).expanduser().resolve(strict=False))
 
-def _cam_save_dir(cam: int | None = None):
+def _cam_save_dir(cam: Optional[int] = None):
     if cam:
         env = os.getenv(f"CAMERA_SAVE_DIR_{cam}")
         if env:
@@ -57,7 +59,7 @@ def _cam_save_dir(cam: int | None = None):
 def _cam_tmp_dir():
     return _abs(os.getenv("CAMERA_TIMELAPSE_TMP", "./tmp"))
 
-def _cam_rtsp(cam: int | None = None) -> str:
+def _cam_rtsp(cam: Optional[int] = None) -> str:
     if cam:
         env = os.getenv(f"CAMERA_RTSP_URL_{cam}")
         if env:
@@ -92,11 +94,11 @@ def _name_to_ts(fname: str):
     except Exception:
         return None
 
-def _latest_image_path(cam: int | None = None):
+def _latest_image_path(cam: Optional[int] = None):
     files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     return files[-1] if files else None
 
-def _find_nearest_image(target: dt.datetime, cam: int | None = None):
+def _find_nearest_image(target: dt.datetime, cam: Optional[int] = None):
     files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     best, best_delta = None, None
     for p in files:
@@ -108,7 +110,7 @@ def _find_nearest_image(target: dt.datetime, cam: int | None = None):
             best, best_delta = p, delta
     return best
 
-def _list_between(start_dt: dt.datetime, end_dt: dt.datetime, cam: int | None = None):
+def _list_between(start_dt: dt.datetime, end_dt: dt.datetime, cam: Optional[int] = None):
     files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     res = []
     for p in files:
@@ -131,7 +133,7 @@ def _parse_dt_local(s: str) -> dt.datetime:
     except Exception:
         return dt.datetime.fromisoformat(s)
 
-def _save_frame(frame, cam: int | None = None) -> str:
+def _save_frame(frame, cam: Optional[int] = None) -> str:
     out_dir = Path(_cam_save_dir(cam))
     out_dir.mkdir(parents=True, exist_ok=True)
 

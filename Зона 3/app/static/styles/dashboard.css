@@ -404,3 +404,19 @@ nav ul li a[data-active="true"]{
   background:#f9fafb;
   font-weight:600; font-size:14px; color:#111827;
 }
+/* === Fullscreen lightbox для камер === */
+#imgLightbox{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.9);
+  display: none;                   /* по умолчанию скрыт */
+  align-items: center; justify-content: center;
+  z-index: 2000;                   /* выше модалок */
+  cursor: zoom-out;
+}
+#imgLightbox.open{ display: flex; }
+#imgLightbox img{
+  max-width: 96vw; max-height: 96vh;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5);
+}
+body.no-scroll{ overflow: hidden; }

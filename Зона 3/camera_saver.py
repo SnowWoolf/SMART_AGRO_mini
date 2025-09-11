@@ -8,6 +8,9 @@ import threading
 from pathlib import Path
 from dotenv import load_dotenv
 import numpy as np
+from typing import Optional, List
+
+
 
 # ===== Загрузка .env =====
 load_dotenv()
@@ -42,7 +45,7 @@ def _clean_env_val(v: str) -> str:
     """Срезает возможные кавычки и хвостовые пробелы из значений .env"""
     return v.strip().strip('"').strip("'")
 
-def cam_env(name: str, cam: int, default: str | None = None) -> str | None:
+def cam_env(name: str, cam: int, default: Optional[str] = None) -> Optional[str]:
     """Читает переменную окружения с приоритетом *_<cam>, иначе базовую.
        Пример: CAMERA_SAVE_DIR_2 > CAMERA_SAVE_DIR.
     """
@@ -53,7 +56,7 @@ def cam_env(name: str, cam: int, default: str | None = None) -> str | None:
         v = _clean_env_val(v)
     return v
 
-def list_cam_ids() -> list[int]:
+def list_cam_ids() -> List[int]:
     """Возвращает список ID камер для запуска.
        Если CAMERA_IDS задана — используем её.
        Иначе пробуем 1..4, включая те, у которых задан RTSP.
@@ -143,7 +146,7 @@ def retention_cleanup_dir(save_dir: str, retain_days: float):
                 pass
 
 # ===== Захват «свежего» кадра =====
-def grab_fresh_frame(rtsp_url: str, warmup_ms: int) -> np.ndarray | None:
+def grab_fresh_frame(rtsp_url: str, warmup_ms: int) -> Optional[np.ndarray]:
     """Открывает RTSP, делает «прожиг» потока и возвращает последний кадр."""
     cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
     if not cap.isOpened():
@@ -218,7 +221,7 @@ def run():
         print("CAMERA_IDS не заданы и не найдено ни одной камеры в .env")
         return
 
-    threads: list[threading.Thread] = []
+    threads: List[threading.Thread] = []
     for cam_id in cams:
         t = threading.Thread(target=run_camera_worker, args=(cam_id,), daemon=True)
         t.start()
