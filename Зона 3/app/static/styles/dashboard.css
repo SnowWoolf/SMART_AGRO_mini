@@ -64,15 +64,22 @@ body{
 .layout{
   display:grid;
   gap:16px;
-  grid-template-columns: 1.3fr 1fr 0.7fr;
+  grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) minmax(0,0.7fr);
 }
 @media (max-width: 1200px){
-  .layout{ grid-template-columns: 1fr 1fr; }
+  .layout{ grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
   .col-right{ grid-column: 1 / -1; } /* камеры вниз */
 }
 @media (max-width: 860px){
-  .layout{ grid-template-columns: 1fr; }
+  .layout{ grid-template-columns: minmax(0,1fr); }
 }
+
+/* колонкам и карточкам разрешаем сжиматься */
+.col-left, .col-center, .col-right,
+.card, .controls-grid, .param-grid, .camera-grid{
+  min-width: 0;
+}
+
 
 /* ===== ЛОГИ (левая колонка) ===== */
 .logs{
@@ -367,6 +374,14 @@ nav ul li a[data-active="true"]{
 @media (max-width: 600px){
   .controls-grid--pairs{ grid-template-columns: 1fr; }
 }
+
+/* На телефонах: конкретные гриды с модификатором — в одну колонку */
+@media (max-width: 900px){
+  .controls-grid--stack{
+    grid-template-columns: 1fr !important;
+  }
+}
+
 
 /* ===== Растворный узел (mixing) ===== */
 .mixing-grid{

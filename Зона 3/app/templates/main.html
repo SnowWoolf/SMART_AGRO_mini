@@ -11,7 +11,7 @@
       <!-- КНОПКИ-ИСПОЛНИТЕЛИ -->
       <div class="card">
         <h2>Управление</h2>
-        <div class="controls-grid">
+        <div class="controls-grid controls-grid--stack">
           <!-- сохраняем id и onclick -->
             <button id="nasos" class="status-button" onclick="toggleParameter('Насос')" {% if current_user.username != 'admin' %}disabled{% endif %}>Насос</button>
             <button id="peremesh" class="status-button" onclick="toggleParameter('Перемешивание')" {% if current_user.username != 'admin' %}disabled{% endif %}>Перемешивание</button>
@@ -23,7 +23,7 @@
       </div>
       <div class="card">
         <h2>Полив</h2>
-        <div class="controls-grid">
+        <div class="controls-grid controls-grid--stack">
           <button id="polka1" class="status-button" onclick="toggleParameter('Полка 1')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 1</button>
           <button id="polka2" class="status-button" onclick="toggleParameter('Полка 2')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 2</button>
           <button id="polka3" class="status-button" onclick="toggleParameter('Полка 3')" {% if current_user.username != 'admin' %}disabled{% endif %}>Полив полка 3</button>
