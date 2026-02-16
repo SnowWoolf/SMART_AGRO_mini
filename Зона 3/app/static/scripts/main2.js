@@ -99,9 +99,18 @@ async function updateData() {
         updateText('level_1_1_white',    'ЯРКОСТЬ 1 БЕЛЫЙ');
         updateButton('chanel_1_1_red',   'КАНАЛ 1 КРАСНЫЙ');
         updateText('level_1_1_red',      'ЯРКОСТЬ 1 КРАСНЫЙ');
-
+		updateButton('chanel_lamp2',   'Канал лампы на спилантес');
+        updateText('level_lamp2',      'Яркость лампы на спилантес');
+		
         updateText2('UNIT_ID_PH', 'Уровень PH');
         updateText2('UNIT_ID_EC', 'Уровень EC');
+		
+		updateText2('p_plus_ch1', 'P+ канал 1');
+		updateText2('voltage', 'Напряжение');
+		updateText2('current_ch1', 'Ток канал 1');
+		updateText2('frequency', 'Частота');
+		updateText2('a_plus_ch1', 'А+ канал 1');
+		
 
         // Обновляем графические индикаторы для основного бака
         updateBinaryIndicator('indicator-level-1', 'Уровень бак максимум');
