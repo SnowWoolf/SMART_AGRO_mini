@@ -513,6 +513,10 @@ def poll_parameters():
     ec = float(ec_param.value) if ec_param and ec_param.value is not None else 0
     now = datetime.now()
 
+    # 2) Критические одиночные PH и EC
+    if not first_run:
+        dummy = now
+    
     # 4) Опрос Modbus и синхронизация
     grp_params = [p for p in all_params if p.mode in ("com", "tcp")]
     for grp in group_parameters(grp_params):
