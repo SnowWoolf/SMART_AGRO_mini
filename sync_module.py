@@ -513,28 +513,6 @@ def poll_parameters():
     ec = float(ec_param.value) if ec_param and ec_param.value is not None else 0
     now = datetime.now()
 
-    # 2) Критические одиночные PH и EC
-    if not first_run:
-        # PH
-        if ph < PH_LOW or ph > PH_HIGH:
-            last = last_critical_alerts["PH"]
-            if not last or (now - last).total_seconds() >= CRITICAL_ALERT_INTERVAL * 60:
-                insert_log_message(
-                    f"Критический PH = {ph:.1f} (мин {PH_LOW}, макс {PH_HIGH})",
-                    level="ERROR"
-                )
-                last_critical_alerts["PH"] = now
-        # EC
-        if ec < EC_LOW or ec > EC_HIGH:
-            last = last_critical_alerts["EC"]
-            if not last or (now - last).total_seconds() >= CRITICAL_ALERT_INTERVAL * 60:
-                insert_log_message(
-                    f"Критический EC = {ec:.1f} (мин {EC_LOW}, макс {EC_HIGH})",
-                    level="ERROR"
-                )
-                last_critical_alerts["EC"] = now
-
-
     # 4) Опрос Modbus и синхронизация
     grp_params = [p for p in all_params if p.mode in ("com", "tcp")]
     for grp in group_parameters(grp_params):
