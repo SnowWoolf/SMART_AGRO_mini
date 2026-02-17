@@ -1,201 +1,67 @@
-// нормализуем "включено": сервер может прислать '1', '1.0' или 1
+// ============================
+// нормализация
+// ============================
 const isOn = (v) => v === '1' || v === '1.0' || v === 1;
 
+// ============================
+// обновление кнопок
+// ============================
 async function updateData() {
     try {
         const response = await fetch(getParametersUrl);
         const data = await response.json();
 
         const updateButton = (id, key) => {
-          const btn = document.getElementById(id);
-          if (!btn) return;
-          const on = isOn(data[key]);
+            const btn = document.getElementById(id);
+            if (!btn) return;
 
-          // меняем только состояние
-          btn.classList.toggle('on',  on);
-          btn.classList.toggle('off', !on);
+            const on = isOn(data[key]);
 
-          // доступность/хуки
-          btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-          btn.dataset.state = on ? 'on' : 'off';
-
-          // опционально: подсказка состояния при наведении (текст кнопки не меняем)
-          btn.title = on ? 'вкл' : 'откл';
-        };
-        const updateText = (id, key) => {
-            const elem = document.getElementById(id);
-            if (!elem) return;
-
-            const raw = data[key];
-            const num = parseFloat(raw);
-            if (!isNaN(num)) {
-                // округляем до десятых
-                elem.textContent = num.toFixed(0);
-            } else {
-                // не число — показываем как есть
-                elem.textContent = raw;
-            }
-        };
-        const updateText2 = (id, key) => {
-            const elem = document.getElementById(id);
-            if (!elem) return;
-
-            const raw = data[key];
-            const num = parseFloat(raw);
-            if (!isNaN(num)) {
-                // округляем до десятых
-                elem.textContent = num.toFixed(1);
-            } else {
-                // не число — показываем как есть
-                elem.textContent = raw;
-            }
+            btn.classList.toggle('on', on);
+            btn.classList.toggle('off', !on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.dataset.state = on ? 'on' : 'off';
         };
 
+        updateButton('Rele_ch1', 'Канал 1');
+        updateButton('Rele_ch2', 'Канал 2');
+        updateButton('Rele_ch3', 'Канал 3');
+        updateButton('Rele_ch4', 'Канал 4');
+        updateButton('Rele_ch5', 'Канал 5');
+        updateButton('Rele_ch6', 'Канал 6');
 
-        const updateStatusText = (id, key) => {
-            const elem = document.getElementById(id);
-            if (elem) {
-                elem.textContent = data[key] === '1' ? 'вкл' : 'откл';
-            }
-        };
-
-        const updateTimeText = (id, key) => {
-            const elem = document.getElementById(id);
-            if (elem) {
-                const value = parseFloat(data[key]) || 0;
-                elem.textContent = (value / 10).toFixed(0);
-            }
-        };
-
-        const updateBinaryIndicator = (id, key) => {
-          const indicator = document.getElementById(id);
-          if (!indicator) return;
-          if (isOn(data[key])) {
-            indicator.classList.remove('empty');
-            indicator.classList.add('filled');
-          } else {
-            indicator.classList.remove('filled');
-            indicator.classList.add('empty');
-          }
-        };
-
-
-        updateButton('napolnit', 'Наполнение');
-        updateButton('peremesh', 'Перемешивание');
-        updateButton('sliv', 'Слив');
-        updateButton('nasos', 'Насос');
-        updateButton('svet1', 'Свет 12');
-        updateButton('svet2', 'Свет 34');
-
-        updateButton('polka1', 'Полка 1');
-        updateButton('polka2', 'Полка 2');
-        updateButton('polka3', 'Полка 3');
-        updateButton('polka4', 'Полка 4');
-
-        updateButton('mode_param', 'Режим эксплуатации');
-        updateButton('mixing', 'Растворный узел');
-
-        updateButton('chanel_1_1_white', 'КАНАЛ 1 БЕЛЫЙ');
-        updateText('level_1_1_white',    'ЯРКОСТЬ 1 БЕЛЫЙ');
-        updateButton('chanel_1_1_red',   'КАНАЛ 1 КРАСНЫЙ');
-        updateText('level_1_1_red',      'ЯРКОСТЬ 1 КРАСНЫЙ');
-		updateButton('chanel_lamp2',   'Канал лампы на спилантес');
-        updateText('level_lamp2',      'Яркость лампы на спилантес');
-		
-        updateText2('UNIT_ID_PH', 'Уровень PH');
-        updateText2('UNIT_ID_EC', 'Уровень EC');
-		
-		updateText2('p_plus_ch1', 'P+ канал 1');
-		updateText2('voltage', 'Напряжение');
-		updateText2('current_ch1', 'Ток канал 1');
-		updateText2('frequency', 'Частота');
-		updateText2('a_plus_ch1', 'А+ канал 1');
-		
-
-        // Обновляем графические индикаторы для основного бака
-        updateBinaryIndicator('indicator-level-1', 'Уровень бак максимум');
-        updateBinaryIndicator('indicator-level-2', 'Уровень бак средний');
-        updateBinaryIndicator('indicator-level-3', 'Уровень бак минимум');
-
-
-        // Обновляем графические индикаторы для баков компонентов
-
-        updateBinaryIndicator('indicator-level-A1', 'Уровень А максимум');
-        updateBinaryIndicator('indicator-level-B1', 'Уровень В максимум');
-        updateBinaryIndicator('indicator-level-K1', 'Уровень К максимум');
-
-        updateBinaryIndicator('indicator-level-A2', 'Уровень А минимум');
-        updateBinaryIndicator('indicator-level-B2', 'Уровень В минимум');
-        updateBinaryIndicator('indicator-level-K2', 'Уровень К минимум');
-
-        updateStatusText('statusA', 'Подача А в бак');
-        updateStatusText('statusB', 'Подача В в бак');
-        updateStatusText('statusK', 'Подача кислоты в бак');
-        updateTimeText('timeA', 'Время подачи A в бак');
-        updateTimeText('timeB', 'Время подачи В в бак');
-        updateTimeText('timeK', 'Время подачи кислоты в бак');
-
-    } catch (error) {
-        console.error("Ошибка обновления данных:", error);
+    } catch (e) {
+        console.error("update error:", e);
     }
 }
 
-async function toggleParameter(parameterName) {
+// ============================
+// 🔴 ГЛОБАЛЬНЫЙ toggle
+// ============================
+window.toggleParameter = async function(parameterName) {
     try {
+        console.log("CLICK →", parameterName);
+
         const response = await fetch(toggleParameterUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ parameter: parameterName })
         });
-        await response.json();
-        updateData();
-    } catch (error) {
-        console.error("Ошибка переключения параметра:", error);
-    }
-}
 
-async function setValue() {
-    const parameterName = document.getElementById('parameter-name').value;
-    const parameterValue = document.getElementById('parameter-value').value;
-    try {
-        const response = await fetch(setParameterValueUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ parameter: parameterName, value: parameterValue })
-        });
-        await response.json();
-        closeModal();
-        updateData();
-    } catch (error) {
-        console.error("Ошибка установки значения:", error);
-    }
-}
+        const r = await response.json();
+        console.log("SERVER:", r);
 
-function openModal(parameterName) {
-    document.getElementById('parameter-name').value = parameterName;
-    document.getElementById('parameter-value').value = '';
-    document.getElementById('valueModal').style.display = 'block';
-}
+        setTimeout(updateData, 150);
 
-function closeModal() {
-    document.getElementById('valueModal').style.display = 'none';
-}
-
-window.onclick = function(event) {
-    const modal = document.getElementById('valueModal');
-    if (event.target === modal) {
-        closeModal();
+    } catch (e) {
+        console.error("toggle error:", e);
     }
 };
 
-const brightnessInput = document.getElementById('parameter-value');
-if (brightnessInput) {
-    brightnessInput.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            setValue();
-        }
-    });
-}
-
-setInterval(updateData, 1000);
+// ============================
+// init
+// ============================
+document.addEventListener("DOMContentLoaded", () => {
+    updateData();
+    setInterval(updateData, 1000);
+});

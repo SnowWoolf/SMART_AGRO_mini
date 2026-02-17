@@ -3,40 +3,7 @@
 <div class="main-wrapper">
     <div class="container">
         <div class="row">
-            <!-- Сценарии полива -->
-            <div class="col">
-                <h1>Сценарии полива</h1>
-                {% if current_user.username == 'admin' %}
-                    <button class="btn btn-primary" onclick="openAddScenarioModal('Полив')">Добавить сценарий</button>
-                {% endif %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Время</th>
-                            <th>Параметр</th>
-                            <th>Значение</th>
-                            <th>Результат</th>
-                            <th>Дата, время крайнего срабатывания</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody id="irrigation-scenarios">
-                        {% for scenario in irrigation_scenarios %}
-                        <tr>
-                            <td>{{ scenario.time }}</td>
-                            <td>{{ scenario.parameter }}</td>
-                            <td>{{ scenario.value }}</td>
-                            <td>{{ scenario.result }}</td>
-                            <td>{{ scenario.last_execution }}</td>
-                            <td>{% if current_user.username == 'admin' %}
-                                <button class="btn btn-danger" onclick="deleteScenario({{ scenario.id }}, 'Полив')">Удалить</button>
-                            {% endif %}</td>
-
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            
 
             <!-- Сценарии света -->
             <div class="col">
