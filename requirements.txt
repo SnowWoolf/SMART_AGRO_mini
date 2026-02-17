@@ -1,0 +1,10 @@
+dotenv
+requests
+sqlalchemy
+minimalmodbus
+flask
+flask_login
+werkzeug
+flask_sqlalchemy
+flask_wtf
+waitress
