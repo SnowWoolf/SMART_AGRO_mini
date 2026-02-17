@@ -199,7 +199,8 @@ def update_parameter_value(name: str, value: str):
     """Обновляет Parameter.value и .value_date."""
     p = session.query(Parameter).filter_by(controlled_parameter_name=name).first()
     if not p:
-        raise ValueError(f"Параметр '{name}' не найден")
+        logger.warning(f"Параметр '{name}' не найден — пропуск")
+        return
     p.value = value
     p.value_date = datetime.now()
     session.commit()
@@ -265,7 +266,7 @@ def _telegram_dispatcher():
         text = "\n".join(f"[{lvl}] {m}" for lvl, m in batch)
         try:
             resp = requests.post(
-                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                f"https://api.telegram.org/bot{7857929823:AAGymApkdGe0gp33Xuy8nZt7Wjx3FqQQH-M}/sendMessage",
                 data={
                     "chat_id": TELEGRAM_CHAT_ID,
                     "text": text,
@@ -432,8 +433,8 @@ def execute_scenarios():
             p_ec = session.query(Parameter).filter_by(controlled_parameter_name="Уровень EC").first()
 
             # Форматируем значения
-            ph_fmt = format_value(p_ph, p_ph.value)
-            ec_fmt = format_value(p_ec, p_ec.value)
+            ph_fmt = format_value(p_ph, p_ph.value) if p_ph else "-"
+            ec_fmt = format_value(p_ec, p_ec.value) if p_ec else "-"
             val_fmt = format_value(p, p.value)
 
             # Формируем сообщение
@@ -474,230 +475,6 @@ def check_offline_alarms():
                 insert_log_message(f"Нет связи с устройством {dev} уже {int(mins)} мин.", "ERROR")
                 d["sent"].add(th)
 
-# ─────────────────────────────────────────────────────────────────────────────
-#                      Управление подачей (handle_feed_timers)
-# ─────────────────────────────────────────────────────────────────────────────
-def handle_feed_timers(params_dict: dict):
-    """
-    Управление таймерами подачи и реле по фазам:
-      idle → stabilizing → regulating → countdown → post_stabilization → regulating → …
-    """
-    now = datetime.now()
-    mp  = get_mixing_parameters()
-    mode = os.getenv("PUMP_ACTIVATION_MODE", "вместе").lower()
-
-    # Считываем флаг перемешивания
-    try:
-        pump_on = float(get_parameter_value("Растворный узел") or 0) > 0
-    except:
-        pump_on = False
-
-    # 2) Если мешалка должна управляться автоматом — только в режиме работы растворного узла
-    # if pump_on:
-    #     _manage_stirrer(True)
-
-    # Если мешалка выключена — сбрасываем всё и уходим в idle
-    if not pump_on:
-        if mix_state.get("phase") != "idle":
-            # Сбрасываем таймеры и реле
-            for _, _, _, timer_name, relay_name in [
-                ("A", "expected_ec", insert_density_record, "Время подачи A в бак", "Подача А в бак"),
-                ("В", "expected_ec", insert_density_record, "Время подачи В в бак", "Подача В в бак"),
-                ("кислоты", "expected_ph", insert_buffer_capacity_record, "Время подачи кислоты в бак", "Подача кислоты в бак"),
-            ]:
-                update_parameter_value(timer_name, "0")
-                update_parameter_value(relay_name, "0")
-
-            # сброс мешалки
-            # update_parameter_value(STIRRER_PARAM, "0")
-            insert_log_message("Растворный узел выключен — сброс фаз и таймеров", "INFO")
-        mix_state.clear()
-        mix_state["phase"] = "idle"
-        return
-
-    phase = mix_state.get("phase", "idle")
-
-    # 1) Перешли от idle к stabilizing
-    if phase == "idle":
-        mix_state["mix_start"]  = now
-        mix_state["phase"]      = "stabilizing"
-        insert_log_message(f"Растворный узел включен — ждем {mp.stabilization_time}s стабилизации", "INFO")
-        return
-
-    # 2) Ожидание стабилизации
-    if phase == "stabilizing":
-        elapsed = (now - mix_state["mix_start"]).total_seconds()
-        if elapsed >= mp.stabilization_time:
-            mix_state["phase"]      = "regulating"
-            mix_state["prev_ec"]    = float(get_parameter_value("Уровень EC") or 0)
-            mix_state["prev_ph"]    = float(get_parameter_value("Уровень PH") or 0)
-            insert_log_message("Стабилизация завершена — начинаем цикл регулирования", "INFO")
-        return
-
-    # 3) Расчет таймеров и отправка стартового отчета
-    if phase == "regulating":
-        # Сразу берём самые свежие значения из БД:
-        curr_ec = float(get_parameter_value("Уровень EC") or 0)
-        curr_ph = float(get_parameter_value("Уровень PH") or 0)
-
-        delta_ec = mp.target_ec - curr_ec
-        delta_ph = curr_ph - mp.target_ph
-
-        # EC
-        if delta_ec > mp.ec_deviation:
-            vol_ec     = round(1000 * delta_ec * mp.tank_volume / (mp.density_a + mp.density_b), 0)
-            rate_ec    = mp.pump_flow_rate * 2 / 60000  # л/сек
-            t_full_ec  = round(vol_ec / (rate_ec * 1000), 0)
-            t_work_ec  = min(t_full_ec, mp.maxtime)
-            units_ec   = int(t_work_ec * 10)
-            update_parameter_value("Время подачи A в бак", str(units_ec))
-            update_parameter_value("Время подачи В в бак", str(units_ec))
-            mix_state["expected_ec"] = (delta_ec * t_work_ec / t_full_ec) if t_full_ec else 0
-            mix_state["prev_ec"] = float(get_parameter_value("Уровень EC") or 0)
-        else:
-            vol_ec = t_full_ec = t_work_ec = units_ec = 0
-            mix_state["expected_ec"] = 0
-
-        # pH
-        if delta_ph > mp.ph_deviation:
-            vol_ph     = round(delta_ph * mp.bf * mp.tank_volume / 1000, 0)
-            rate_ph    = mp.pump_flow_rate / 60000
-            t_full_ph  = round(vol_ph / (rate_ph * 1000) , 0)
-            t_work_ph  = min(t_full_ph, mp.maxtime)
-            units_ph   = int(t_work_ph * 10)
-            update_parameter_value("Время подачи кислоты в бак", str(units_ph))
-            mix_state["expected_ph"] = (delta_ph * t_work_ph / t_full_ph) if t_full_ph else 0
-            mix_state["prev_ph"] = float(get_parameter_value("Уровень PH") or 0)
-        else:
-            vol_ph = t_full_ph = t_work_ph = units_ph = 0
-            mix_state["expected_ph"] = 0
-
-        # Если оба = 0 → сразу выходим (без детальной сводки)
-        if mix_state["expected_ec"] == 0 and mix_state["expected_ph"] == 0:
-            insert_log_message("Регулирование EC и pH не потребовалось", "INFO")
-            mix_state["phase"] = "idle"
-            return
-
-        # Иначе формируем «Начало цикла регулирования» по каждому параметру отдельно:
-        lines = ["Начало цикла регулирования."]
-
-        # 1) EC
-        if mix_state["expected_ec"] == 0:
-            lines.append(
-                f"Требуемый EC = {mp.target_ec:.1f}, текущий EC = {curr_ec:.1f} — регулирование по EC не требуется.")
-        else:
-            # vol_ec, t_full_ec, t_work_ec уже вычислены выше
-            lines.append(
-                f"Требуемый EC = {mp.target_ec:.1f}, текущий EC = {curr_ec:.1f}, "
-                f"нужно {vol_ec:.0f} мл ({t_full_ec}s работы насоса)."
-            )
-            lines.append(
-                f"С учётом ограничений включено A и B на {t_work_ec}s. "
-                f"Ожидаемое изменение EC на {mix_state['expected_ec']:.3f} до уровня EC={curr_ec + mix_state['expected_ec']:.3f}."
-            )
-
-        # 2) pH
-        if mix_state["expected_ph"] == 0:
-            lines.append(
-                f"Требуемый pH = {mp.target_ph:.1f}, текущий pH = {curr_ph:.1f} — регулирование по pH не требуется.")
-        else:
-            # vol_ph, t_full_ph, t_work_ph уже вычислены выше
-            lines.append(
-                f"Требуемый pH = {mp.target_ph:.1f}, текущий pH = {curr_ph:.1f}, "
-                f"нужно {vol_ph:.1f} мл кислоты ({t_full_ph}s работы насоса)."
-            )
-            lines.append(
-                f"С учётом ограничений включена кислота на {t_work_ph}s. "
-                f"Ожидаемое изменение pH на {mix_state['expected_ph']:.3f} до уровня pH={curr_ph - mix_state['expected_ph']:.3f}."
-            )
-
-        insert_log_message("\n".join(lines), "INFO")
-        mix_state["phase"] = "countdown"
-        return
-
-    # 4) Обратный отсчёт и включение реле (только console-лог)
-    def process_pump(comp, exp_key, record_fn, timer_name, relay_name):
-        raw = get_parameter_value(timer_name) or "0"
-        rem = int(float(raw))
-        if rem > 0 and timer_name not in feed_started_flags:
-            logger.info(f"[feed] Запуск {relay_name}, остаток {rem*0.1:.1f}s")
-            update_parameter_value(relay_name, "1")
-            feed_started_flags.add(timer_name)
-        if rem > 0:
-            new = max(0, rem - 10)
-            update_parameter_value(timer_name, str(new))
-        else:
-            new = 0
-        if new == 0 and timer_name in feed_started_flags:
-            logger.info(f"[feed] Окончание {relay_name}")
-            update_parameter_value(relay_name, "0")
-            feed_started_flags.remove(timer_name)
-        return new
-
-    sequence = [
-        ("A",       "expected_ec", insert_density_record,        "Время подачи A в бак",         "Подача A в бак"),
-        ("В",       "expected_ec", insert_density_record,        "Время подачи В в бак",         "Подача В в бак"),
-        ("кислоты", "expected_ph", insert_buffer_capacity_record,"Время подачи кислоты в бак", "Подача кислоты в бак"),
-    ]
-
-    if mode == "вместе":
-        for args in sequence:
-            process_pump(*args)
-        all_zero = all(
-            int(float(get_parameter_value(tn) or "0")) == 0
-            for *_, tn, __ in sequence
-        )
-        if phase == "countdown" and all_zero:
-            mix_state["phase"]     = "post_stabilization"
-            mix_state["mix_start"] = now
-            insert_log_message("Подачи завершены — ждем стабилизации перед завершением цикла", "INFO")
-    else:  # по очереди
-        any_active = False
-        for args in sequence:
-            if process_pump(*args) > 0:
-                any_active = True
-                break
-        if phase == "countdown" and not any_active:
-            mix_state["phase"]     = "post_stabilization"
-            mix_state["mix_start"] = now
-            insert_log_message("Подачи по очереди завершены — ждем стабилизации перед завершением цикла", "INFO")
-
-    # 5) Пост-стабилизация и итоговый отчет
-    if mix_state.get("phase") == "post_stabilization":
-        elapsed2 = (now - mix_state["mix_start"]).total_seconds()
-        if elapsed2 >= mp.stabilization_time:
-            lines = ["По завершении цикла регулирования получили:"]
-
-            # 1) EC
-            if mix_state["expected_ec"] == 0:
-                lines.append("Регулирование по EC не выполнялось.")
-            else:
-                curr_ec = float(get_parameter_value("Уровень EC") or 0)
-                actual_ec_change = curr_ec - mix_state["prev_ec"]
-                eff_ec = (actual_ec_change / mix_state["expected_ec"] * 100) if mix_state["expected_ec"] else 0
-                lines.append(
-                    f"Ожидаемое изменение EC = {mix_state['expected_ec']:.3f}, "
-                    f"факт = {actual_ec_change:.3f}, эффективность = {eff_ec:.0f}%"
-                )
-
-            # 2) pH 
-            if mix_state["expected_ph"] == 0:
-                lines.append("Регулирование по pH не выполнялось.")
-            else:
-                curr_ph = float(get_parameter_value("Уровень PH") or 0)
-                actual_ph_change = mix_state["prev_ph"] - curr_ph
-                eff_ph = (actual_ph_change / mix_state["expected_ph"] * 100) if mix_state["expected_ph"] else 0
-                lines.append(
-                    f"Ожидаемое изменение pH = {mix_state['expected_ph']:.3f}, "
-                    f"факт = {actual_ph_change:.3f}, эффективность = {eff_ph:.0f}%"
-                )
-
-            insert_log_message("\n".join(lines), "INFO")
-
-            # готовимся к новому циклу регулирования (возврат в регуляцию)
-            mix_state["phase"] = "regulating"
-            mix_state["mix_start"] = None
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 #                        Основной опрос параметров
@@ -733,7 +510,7 @@ def poll_parameters():
     ph_param = params_dict.get("Уровень PH")
     ph = float(ph_param.value) if ph_param and ph_param.value is not None else 0
     ec_param = params_dict.get("Уровень EC")
-    ec = float(ph_param.value) if ec_param and ec_param.value is not None else 0
+    ec = float(ec_param.value) if ec_param and ec_param.value is not None else 0
     now = datetime.now()
 
     # 2) Критические одиночные PH и EC
@@ -757,26 +534,6 @@ def poll_parameters():
                 )
                 last_critical_alerts["EC"] = now
 
-    # 3) Критические связки параметров
-    for idx, (p1_name, must_on1, p2_name, must_on2) in enumerate(CRITICAL_LINKS):
-        p1 = params_dict.get(p1_name)
-        p2 = params_dict.get(p2_name)
-        if not p1 or not p2:
-            continue
-
-        # Проверяем текущие состояния как булевы
-        val1 = (float(p1.value or 0) != 0)
-        val2 = (float(p2.value or 0) != 0)
-        if val1 == must_on1 and val2 == must_on2:
-            last = last_critical_links.get(idx)
-            if not last or (now - last).total_seconds() >= CRITICAL_ALERT_INTERVAL * 60:
-                state1 = format_value(p1, p1.value)
-                state2 = format_value(p2, p2.value)
-                insert_log_message(
-                    f"Критическое событие: {p1_name} — {state1}, {p2_name} — {state2}",
-                    level="ERROR"
-                )
-                last_critical_links[idx] = now
 
     # 4) Опрос Modbus и синхронизация
     grp_params = [p for p in all_params if p.mode in ("com", "tcp")]
@@ -879,18 +636,7 @@ def poll_parameters():
 
     session.commit()
 
-    # 5) Низкие уровни
-    if not first_run:
-        for name in low_level_params:
-            p = params_dict.get(name)
-            if p and p.value == "0":
-                last = low_level_notifications.get(p.id)
-                if not last or (now - last).total_seconds() >= 300:
-                    insert_log_message(f"Низкий уровень {name}", level="WARNING")
-                    low_level_notifications[p.id] = now
-            else:
-                low_level_notifications.pop(p.id, None)
-
+  
     # ─────────────────────────────────────────────────────────
     # Мониторим новый параметр «Расход чистой воды» и «Объем чистой воды»
     try:
@@ -902,8 +648,7 @@ def poll_parameters():
         # если параметров нет в БД — просто пропускаем
         pass
 
-    # 6) Управление подачей
-    handle_feed_timers(params_dict)
+
 
     first_run = False
 

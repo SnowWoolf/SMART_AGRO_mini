@@ -40,17 +40,7 @@
         </div>
       </div>
 
-      <div class="card log-box">
-        <h2>Аварийные события</h2>
-        <div class="log-scroll">
-          {% for log in logs_errors or [] %}
-            <li>
-              <span class="log-time">{{ log.timestamp.strftime('%d.%m.%Y %H:%M:%S') }}</span>
-              <span>{{ log.message }}</span>
-            </li>
-          {% endfor %}
-        </div>
-      </div>
+
 
     </div>
   </div>
