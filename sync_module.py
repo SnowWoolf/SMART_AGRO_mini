@@ -730,8 +730,10 @@ def poll_parameters():
     # Создаем словарь с ДЕКОДИРОВАННЫМИ ключами
     params_dict = {to_str(p.controlled_parameter_name): p for p in all_params}
 
-    ph = float(params_dict["Уровень PH"].value or 0)
-    ec = float(params_dict["Уровень EC"].value or 0)
+    ph_param = params_dict.get("Уровень PH")
+    ph = float(ph_param.value) if ph_param and ph_param.value is not None else 0
+    ec_param = params_dict.get("Уровень EC")
+    ec = float(ph_param.value) if ec_param and ec_param.value is not None else 0
     now = datetime.now()
 
     # 2) Критические одиночные PH и EC
