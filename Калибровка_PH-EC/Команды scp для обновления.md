@@ -1,10 +1,12 @@
-Для установки обновления на уже работающие объекты необходимо загрузить в УМ файлы из этой папки
+Для установки обновления на уже настроенные фермы необходимо загрузить в УМ файлы из этой папки
 
-scp -i C:/UM/StroyC/mixing_parameters.html root@192.168.203.24:/home/agro/app/templates/
+---
 
-scp -i C:/UM/StroyC/routes.py root@192.168.203.24:/home/agro/app/
+'scp -i C:/UM/StroyC/mixing_parameters.html root@192.168.203.24:/home/agro/app/templates/'
 
-scp -i C:/UM/StroyC/sync_module.py root@192.168.203.24:/home/agro/
+'scp -i C:/UM/StroyC/routes.py root@192.168.203.24:/home/agro/app/'
+
+'scp -i C:/UM/StroyC/sync_module.py root@192.168.203.24:/home/agro/'
 
 ---
 
