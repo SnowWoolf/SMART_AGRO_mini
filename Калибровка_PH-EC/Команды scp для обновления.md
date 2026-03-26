@@ -1,7 +1,9 @@
 scp -i C:/UM/StroyC/mixing_parameters.html root@192.168.203.24:/home/agro/app/templates/
 
 scp -i C:/UM/StroyC/routes.py root@192.168.203.24:/home/agro/app/
+
 ---
+
 БД выгрузить из УМ, добавить 15 строк и загрузить обратно:
 
 ec_calibration_temperature
