@@ -562,27 +562,74 @@ def update_mixing_parameter():
 @login_required
 def update_calibration_parameter():
     try:
-        data = request.get_json()
+        import minimalmodbus
 
+        data = request.get_json()
         name = data.get('parameter_name')
         value = data.get('parameter_value')
 
-        if not name or value is None:
-            return jsonify({'error': 'Неверные данные'}), 400
+        if not name:
+            return jsonify({"error": "No parameter_name"}), 400
 
         p = Parameter.query.filter_by(controlled_parameter_name=name).first()
         if not p:
-            return jsonify({'error': f'Parameter {name} not found'}), 404
+            return jsonify({"error": f"Parameter {name} not found"}), 404
 
+        # helper для записи Modbus
+        def write_modbus_param(param_obj, human_value):
+            inst = minimalmodbus.Instrument(str(param_obj.com), int(param_obj.network_address), mode=minimalmodbus.MODE_RTU)
+            inst.serial.baudrate = int(param_obj.speed)
+            inst.serial.timeout = float(getattr(param_obj, "timeout", 1.0) or 1.0)
+            inst.serial.bytesize = 8
+            inst.serial.parity = minimalmodbus.serial.PARITY_NONE
+            inst.serial.stopbits = 1
+            inst.handle_local_echo = True
+
+            k = float(param_obj.K) if param_obj.K else 1.0
+            raw = int(float(human_value) * k)
+
+            if str(param_obj.register_type) == "1":
+                inst.write_bit(int(param_obj.register_number), raw, functioncode=5)
+            elif str(param_obj.register_type) == "3":
+                inst.write_register(int(param_obj.register_number), raw, functioncode=6)
+            else:
+                raise ValueError(f"Unsupported register_type {param_obj.register_type} for {param_obj.controlled_parameter_name}")
+
+        # pH растворы
+        if name in ("ph_buffer_1", "ph_buffer_2"):
+            unlock = Parameter.query.filter_by(controlled_parameter_name="PH_CALC_SAVE").first()
+            if not unlock:
+                return jsonify({"error": "PH_CALC_SAVE not found"}), 500
+
+            write_modbus_param(unlock, 0x2709)
+            write_modbus_param(p, value)
+
+        # EC растворы
+        elif name in ("ec_solution_1", "ec_solution_2"):
+            unlock = Parameter.query.filter_by(controlled_parameter_name="EC_CALC_SAVE").first()
+            if not unlock:
+                return jsonify({"error": "EC_CALC_SAVE not found"}), 500
+
+            write_modbus_param(unlock, 0x2709)
+            write_modbus_param(p, value)
+
+        # температура EC
+        elif name == "ec_calibration_temperature":
+            write_modbus_param(p, value)
+
+        else:
+            return jsonify({"error": f"Unsupported calibration parameter: {name}"}), 400
+
+        # Только если Modbus-запись прошла успешно — обновляем БД
         p.value = str(value)
         p.value_date = datetime.now()
-
         db.session.commit()
-        return jsonify({'success': True})
+
+        return jsonify({"status": "ok"})
+
     except Exception as e:
         db.session.rollback()
-        logger.error("Ошибка update_calibration_parameter: %s", e)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route('/start_sensor_calibration', methods=['POST'])

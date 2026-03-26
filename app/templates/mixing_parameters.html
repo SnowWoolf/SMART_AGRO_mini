@@ -194,7 +194,7 @@
                     </button>
                 </td>
             </tr>
-           
+           <!--
             <tr>
                 <th>Статус калибровки</th>
                 <td id="ph_calibration_status">{{ calibration_params.ph_calibration_status }}</td>
@@ -205,6 +205,7 @@
                 <td id="ph_calibration_updated">{{ calibration_params.ph_calibration_updated }}</td>
                 <td></td>
             </tr>
+			-->
         </table>
 
         <div style="margin-top: 16px;">
@@ -260,6 +261,7 @@
                     </button>
                 </td>
             </tr>
+			<!--
             <tr>
                 <th>Статус калибровки</th>
                 <td id="ec_calibration_status">{{ calibration_params.ec_calibration_status }}</td>
@@ -270,9 +272,24 @@
                 <td id="ec_calibration_updated">{{ calibration_params.ec_calibration_updated }}</td>
                 <td></td>
             </tr>
+			-->
         </table>
 
         <div style="margin-top: 16px;">
+		<div style="
+    color: #222;
+    margin: 10px 0 14px 0;
+    padding: 10px 12px;
+    background: #f7f7f7;
+    border-left: 4px solid #bdbdbd;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1.5;
+">
+    <div style="font-weight: 600; margin-bottom: 6px;">При 25°С:</div>
+    <div><b>1 ppm</b> = 0.002 мСм/см</div>
+    <div><b>1.00 мСм/см</b> = 500 ppm</div>
+</div>
     <div style="margin-bottom: 12px; font-weight: 700; color: #c0392b;">
         ПЕРЕД ПРОДОЛЖЕНИЕМ ОЗНАКОМЬСЯ С ИНСТРУКЦИЕЙ!
         <a href="https://wiki.iarduino.ru/page/ec-modbus/#h3_9" target="_blank" rel="noopener noreferrer" style="margin-left: 8px;">
