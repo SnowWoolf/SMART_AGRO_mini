@@ -304,7 +304,79 @@
     </button>
 </div>
     </section>
+	
+    <!-- Параметры WiFi клиента -->
+    <section class="card">
+        <h2>Параметры WiFi клиента</h2>
+        <table table--compact>
+            <tr>
+                <th>Статус WiFi адаптера</th>
+                <td id="wifi_client_status">
+                    {{ wifi_client.status if wifi_client and wifi_client.status else 'Адаптер не обнаружен' }}
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <th>Включить режим WiFi клиента</th>
+                <td>
+                    <label style="display: inline-flex; align-items: center; gap: 8px;">
+                        <input type="checkbox"
+                               id="sta_enabled"
+                               {% if wifi_client and wifi_client.sta_enabled %}checked{% endif %}
+                               {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        <span>Включено</span>
+                    </label>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <th>WiFi сеть</th>
+                <td>
+                    <input type="text"
+                           id="sta_ssid"
+                           class="form-control"
+                           value="{{ wifi_client.sta_ssid if wifi_client else '' }}"
+                           placeholder="Введите имя WiFi сети"
+                           {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <th>Пароль WiFi сети</th>
+                <td>
+                    <input type="password"
+                           id="sta_psk"
+                           class="form-control"
+                           value="{{ wifi_client.sta_psk if wifi_client else '' }}"
+                           placeholder="Введите пароль WiFi сети"
+                           {% if current_user.username != 'admin' %} disabled {% endif %}>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <th>Скрытая сеть</th>
+                <td>
+                    <label style="display: inline-flex; align-items: center; gap: 8px;">
+                        <input type="checkbox"
+                               id="sta_hidden"
+                               {% if wifi_client and wifi_client.sta_hidden %}checked{% endif %}
+                               {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        <span>Да</span>
+                    </label>
+                </td>
+                <td></td>
+            </tr>
+        </table>
 
+        <div style="margin-top: 16px;">
+            <button class="btn btn-primary"
+                    onclick="saveWifiClientSettings()"
+                    {% if current_user.username != 'admin' %} disabled {% endif %}>
+                Записать настройки
+            </button>
+        </div>
+    </section>
+	
     <!-- Модальное окно изменения значения -->
     <div id="valueModal" class="modal">
         <div class="modal-content">
