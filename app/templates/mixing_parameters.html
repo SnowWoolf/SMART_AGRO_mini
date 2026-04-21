@@ -528,6 +528,36 @@
             closeModal();
         }
     }
+    function saveWifiClientSettings() {
+        const staEnabled = document.getElementById('sta_enabled').checked ? 1 : 0;
+        const staSsid = document.getElementById('sta_ssid').value.trim();
+        const staPsk = document.getElementById('sta_psk').value;
+        const staHidden = document.getElementById('sta_hidden').checked ? 1 : 0;
+
+        if (staEnabled && staSsid === '') {
+            alert('Введите имя WiFi сети.');
+            return;
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/update_wifi_client_settings', true);
+        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                alert('Настройки WiFi клиента записаны.');
+            } else {
+                alert('Ошибка при записи настроек WiFi клиента.');
+            }
+        };
+
+        xhr.send(JSON.stringify({
+            'sta_enabled': staEnabled,
+            'sta_ssid': staSsid,
+            'sta_psk': staPsk,
+            'sta_hidden': staHidden
+        }));
+    }
 </script>
 
 {% endblock %}
