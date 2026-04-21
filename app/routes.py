@@ -8,6 +8,18 @@ from collections import defaultdict
 import logging
 from functools import wraps
 
+# === Настройка WiFi-клиента: импорты ===
+import os
+import shutil
+import tempfile
+import subprocess
+import re
+import subprocess
+
+IW_BIN = "/usr/sbin/iw"
+WPA_CLI_BIN = "/sbin/wpa_cli"
+IP_BIN = "/sbin/ip"
+
 # === КАМЕРА: импорты ===
 import cv2, glob, os
 import datetime as dt
@@ -42,6 +54,111 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# === Настройка WiFi-клиента: функции ===
+def read_wifi_conf(path="/etc/smart-wifi/wifi.conf"):
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+
+                if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+                    value = value[1:-1]
+
+                data[key] = value
+    except FileNotFoundError:
+        pass
+
+    return data
+
+
+def get_wifi_ifaces():
+    ap_iface = None
+    sta_iface = None
+
+    try:
+        result = subprocess.run(
+            [IW_BIN, "dev"],
+            capture_output=True,
+            text=True
+        )
+
+        print("IW DEV RC:", result.returncode)
+        print("IW DEV OUT:", result.stdout)
+        print("IW DEV ERR:", result.stderr)
+
+        if result.returncode != 0:
+            return ap_iface, sta_iface
+
+        current_iface = None
+
+        for raw_line in result.stdout.splitlines():
+            line = raw_line.strip()
+
+            if line.startswith("Interface "):
+                current_iface = line.split("Interface ", 1)[1].strip()
+
+            elif line.startswith("type ") and current_iface:
+                iface_type = line.split("type ", 1)[1].strip()
+
+                if iface_type == "AP" and ap_iface is None:
+                    ap_iface = current_iface
+                elif iface_type == "managed" and sta_iface is None:
+                    sta_iface = current_iface
+
+        print("AP_IFACE:", ap_iface)
+        print("STA_IFACE:", sta_iface)
+
+        return ap_iface, sta_iface
+
+    except Exception as e:
+        print("get_wifi_ifaces EXCEPTION:", repr(e))
+        return None, None
+
+
+def get_wifi_client_status() -> str:
+    try:
+        _, sta_iface = get_wifi_ifaces()
+
+        if not sta_iface:
+            return "Адаптер не обнаружен"
+
+        wpa = subprocess.run(
+            [WPA_CLI_BIN, "-i", sta_iface, "status"],
+            capture_output=True,
+            text=True
+        )
+
+        print("WPA STATUS RC:", wpa.returncode)
+        print("WPA STATUS OUT:", wpa.stdout)
+        print("WPA STATUS ERR:", wpa.stderr)
+
+        if wpa.returncode != 0:
+            return "Сеть не подключена"
+
+        status = {}
+        for line in wpa.stdout.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                status[key.strip()] = value.strip()
+
+        if status.get("wpa_state") == "COMPLETED":
+            ip_addr = status.get("ip_address")
+            if ip_addr:
+                return f"Подключен {ip_addr}"
+            return "Сеть подключена"
+
+        return "Сеть не подключена"
+
+    except Exception as e:
+        print("get_wifi_client_status EXCEPTION:", repr(e))
+        return "Адаптер не обнаружен"
 
 # === КАМЕРА: вспомогалки ===
 def _abs(p: str) -> str:
@@ -520,10 +637,21 @@ def mixing_parameters():
         'ec_calibration_updated': get_parameter_value_by_name('EC Calibration Updated', '—'),
     }
 
+    wifi_conf = read_wifi_conf("/etc/smart-wifi/wifi.conf")
+
+    wifi_client = {
+        "status": get_wifi_client_status(),
+        "sta_enabled": wifi_conf.get("STA_ENABLED", "0") == "1",
+        "sta_ssid": wifi_conf.get("STA_SSID", ""),
+        "sta_psk": wifi_conf.get("STA_PSK", ""),
+        "sta_hidden": wifi_conf.get("STA_HIDDEN", "0") == "1",
+    }
+
     return render_template(
         'mixing_parameters.html',
         mixing_params=mixing_params,
         calibration_params=calibration_params,
+        wifi_client=wifi_client,
         title='Растворный узел'
     )
 
@@ -1144,3 +1272,63 @@ def camera_timelapse_mp4():
         abort(500, description="Не удалось собрать клип")
 
     return send_file(out_path, mimetype="video/mp4", as_attachment=dl, download_name=fname, conditional=True)
+    
+    
+@bp.route('/update_wifi_client_settings', methods=['POST'])
+@login_required
+def update_wifi_client_settings():
+    data = request.get_json(force=True)
+
+    sta_enabled = "1" if int(data.get("sta_enabled", 0)) else "0"
+    sta_ssid = str(data.get("sta_ssid", "")).strip()
+    sta_psk = str(data.get("sta_psk", ""))
+    sta_hidden = "1" if int(data.get("sta_hidden", 0)) else "0"
+
+    conf_path = "/etc/smart-wifi/wifi.conf"
+
+    try:
+        with open(conf_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        updates = {
+            "STA_ENABLED": sta_enabled,
+            "STA_SSID": f'"{sta_ssid}"',
+            "STA_PSK": f'"{sta_psk}"',
+            "STA_HIDDEN": sta_hidden,
+        }
+
+        found = set()
+        new_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            replaced = False
+
+            for key, value in updates.items():
+                if stripped.startswith(f"{key}="):
+                    new_lines.append(f"{key}={value}\n")
+                    found.add(key)
+                    replaced = True
+                    break
+
+            if not replaced:
+                new_lines.append(line)
+
+        for key, value in updates.items():
+            if key not in found:
+                new_lines.append(f"{key}={value}\n")
+
+        fd, tmp_path = tempfile.mkstemp()
+        os.close(fd)
+
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+
+        shutil.move(tmp_path, conf_path)
+
+        subprocess.run(["systemctl", "restart", "smart-wifi.service"], check=False)
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
