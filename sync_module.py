@@ -79,8 +79,8 @@ mix_state = {
 }
 
 calibration_prev_states = {
-    "PH": {"state": "idle", "seen_active": False},
-    "EC": {"state": "idle", "seen_active": False},
+    "PH": {"state": "idle", "seen_active": False, "watch": False},
+    "EC": {"state": "idle", "seen_active": False, "watch": False},
 }
 
 # Словарь связанных критических условий:
@@ -281,25 +281,16 @@ def update_text_parameter(name: str, value: str):
         p.value_date = datetime.now()
         session.commit()
 
-
-def calibration_status_from_bits(sensor_name: str, err: int, stage1: int, stay: int, stage2: int):
-    if err:
-        return f"Калибровка {sensor_name}: ошибка"
-
-    if stage1:
-        return f"Калибровка {sensor_name}: стадия 1"
-
-    if stay:
-        return f"Калибровка {sensor_name}: ожидание смены жидкости"
-
-    if stage2:
-        return f"Калибровка {sensor_name}: стадия 2"
-
-    # idle: ничего не пишем, оставляем последний статус
-    return None
-
-
 def read_calibration_status_direct(prefix: str, sensor_name: str):
+    state = calibration_prev_states.setdefault(
+        prefix,
+        {"state": "idle", "seen_active": False, "watch": False}
+    )
+
+    # Статус калибровки трогаем только после нажатия кнопки Старт
+    if not state.get("watch"):
+        return
+
     base = get_parameter(f"{prefix}_CALC_SAVE")
     dev_name = f"{base.device_type}_addr{base.network_address}"
 
@@ -307,7 +298,6 @@ def read_calibration_status_direct(prefix: str, sensor_name: str):
         modbus_clients[dev_name] = setup_modbus_client(base)
 
     inst = modbus_clients[dev_name]
-
     bits = inst.read_bits(0, 4, functioncode=2)
 
     err = int(bits[0])
@@ -315,37 +305,49 @@ def read_calibration_status_direct(prefix: str, sensor_name: str):
     stay = int(bits[2])
     stage2 = int(bits[3])
 
-    status = calibration_status_from_bits(sensor_name, err, stage1, stay, stage2)
-    if status:
-        update_text_parameter(f"{prefix} Calibration Status", status)
+    is_active = bool(stage1 or stay or stage2)
+    is_idle = not err and not is_active
 
-    # --- детекция успешного завершения ---
-    state = calibration_prev_states.setdefault(
-        prefix,
-        {"state": "idle", "seen_active": False}
-    )
+    if err:
+        update_text_parameter(f"{prefix} Calibration Status", f"Калибровка {sensor_name}: ошибка")
+        state["state"] = "error"
+        state["seen_active"] = False
+        state["watch"] = False
+        return
 
-    is_active = bool(stage1 or stage2 or stay)
-    is_idle = (not err and not is_active)
-
-    if is_active:
+    if stage1:
+        update_text_parameter(f"{prefix} Calibration Status", f"Калибровка {sensor_name}: стадия 1")
         state["state"] = "active"
         state["seen_active"] = True
         return
 
-    if err:
-        state["state"] = "error"
-        state["seen_active"] = False
+    if stay:
+        update_text_parameter(f"{prefix} Calibration Status", f"Калибровка {sensor_name}: ожидание смены жидкости")
+        state["state"] = "active"
+        state["seen_active"] = True
         return
 
-    if state["state"] == "active" and state["seen_active"] and is_idle:
+    if stage2:
+        update_text_parameter(f"{prefix} Calibration Status", f"Калибровка {sensor_name}: стадия 2")
+        state["state"] = "active"
+        state["seen_active"] = True
+        return
+
+    if is_idle and state.get("seen_active"):
+        success_status = f"Калибровка {sensor_name}: успешно"
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        update_text_parameter(f"{prefix} Calibration Status", f"Калибровка {sensor_name}: успешно")
+
+        update_text_parameter(f"{prefix} Calibration Status", success_status)
         update_text_parameter(f"{prefix} Calibration Updated", now_str)
+
         insert_log_message(f"Калибровка {sensor_name} завершена успешно", "INFO")
 
-    state["state"] = "idle"
-    state["seen_active"] = False
+        state["state"] = "idle"
+        state["seen_active"] = False
+        state["watch"] = False
+        return
+
+    return
 
 
 def get_mixing_parameters() -> MixingParameter:
@@ -956,6 +958,13 @@ def handle_calibration(params_dict):
         if p and str(p.value) == "1":
             logger.info("START PH CALIBRATION")
 
+            calibration_prev_states["PH"] = {
+                "state": "starting",
+                "seen_active": False,
+                "watch": True,
+            }
+            update_text_parameter("PH Calibration Status", "Калибровка pH: запуск")
+
             p_save = params_dict.get("PH_CALC_SAVE")
             if p_save:
                 ok = write_parameter_value(p_save, 0x2709)
@@ -976,6 +985,13 @@ def handle_calibration(params_dict):
         p = params_dict.get("EC Calibration Start")
         if p and str(p.value) == "1":
             logger.info("START EC CALIBRATION")
+            
+            calibration_prev_states["EC"] = {
+                "state": "starting",
+                "seen_active": False,
+                "watch": True,
+            }
+            update_text_parameter("EC Calibration Status", "Калибровка EC: запуск")
 
             p_save = params_dict.get("EC_CALC_SAVE")
             if p_save:
@@ -1186,15 +1202,21 @@ def poll_parameters():
         read_calibration_status_direct("PH", "pH")
     except Exception as e:
         logger.error(f"Ошибка чтения статуса калибровки pH: {e}")
-        update_text_parameter("PH Calibration Status", "Калибровка pH: ошибка чтения статуса")
+        if calibration_prev_states.get("PH", {}).get("watch"):
+            update_text_parameter("PH Calibration Status", "Калибровка pH: ошибка чтения статуса")
+            calibration_prev_states["PH"]["watch"] = False
+            calibration_prev_states["PH"]["state"] = "error"
+            calibration_prev_states["PH"]["seen_active"] = False
 
     try:
         read_calibration_status_direct("EC", "EC")
     except Exception as e:
         logger.error(f"Ошибка чтения статуса калибровки EC: {e}")
-        update_text_parameter("EC Calibration Status", "Калибровка EC: ошибка чтения статуса")
-
-
+        if calibration_prev_states.get("EC", {}).get("watch"):
+            update_text_parameter("EC Calibration Status", "Калибровка EC: ошибка чтения статуса")
+            calibration_prev_states["EC"]["watch"] = False
+            calibration_prev_states["EC"]["state"] = "error"
+            calibration_prev_states["EC"]["seen_active"] = False
 
 
     # Управление подачей

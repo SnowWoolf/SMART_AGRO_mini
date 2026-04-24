@@ -875,6 +875,11 @@
 	
 let calibrationStatusTimer = null;
 
+let calibrationRunning = {
+    ph: false,
+    ec: false
+};
+
 function refreshCalibrationStatuses() {
     fetch('/get_parameters')
         .then(r => r.json())
@@ -884,20 +889,43 @@ function refreshCalibrationStatuses() {
             const phUpdated = document.getElementById('ph_calibration_updated');
             const ecUpdated = document.getElementById('ec_calibration_updated');
 
-            if (phEl && data['PH Calibration Status']) {
-                phEl.innerText = data['PH Calibration Status'];
+            const phStatus = data['PH Calibration Status'];
+            const ecStatus = data['EC Calibration Status'];
+
+            if (phEl && phStatus) {
+                phEl.innerText = phStatus;
             }
 
-            if (ecEl && data['EC Calibration Status']) {
-                ecEl.innerText = data['EC Calibration Status'];
+            if (ecEl && ecStatus) {
+                ecEl.innerText = ecStatus;
             }
 
-            if (phUpdated && data['PH Calibration Updated']) {
+            if (
+                calibrationRunning.ph &&
+                phStatus === 'Калибровка pH: успешно' &&
+                phUpdated &&
+                data['PH Calibration Updated']
+            ) {
                 phUpdated.innerText = data['PH Calibration Updated'];
+                calibrationRunning.ph = false;
             }
 
-            if (ecUpdated && data['EC Calibration Updated']) {
+            if (
+                calibrationRunning.ec &&
+                ecStatus === 'Калибровка EC: успешно' &&
+                ecUpdated &&
+                data['EC Calibration Updated']
+            ) {
                 ecUpdated.innerText = data['EC Calibration Updated'];
+                calibrationRunning.ec = false;
+            }
+
+            if (phStatus && phStatus.includes('ошибка')) {
+                calibrationRunning.ph = false;
+            }
+
+            if (ecStatus && ecStatus.includes('ошибка')) {
+                calibrationRunning.ec = false;
             }
         })
         .catch(() => {});
@@ -934,7 +962,7 @@ function refreshCalibrationStatuses() {
 				if (statusCell) {
 					statusCell.innerText = 'Запуск...';
 				}
-
+				calibrationRunning[sensorType] = true;
 				startCalibrationStatusPolling();
 			} else {
 				alert('Ошибка при запуске калибровки ' + sensorName + '.');
