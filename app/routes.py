@@ -892,7 +892,6 @@ def start_sensor_calibration():
             return jsonify({'error': 'invalid sensor_type'}), 400
 
         now = datetime.now()
-        now_str = now.strftime('%Y-%m-%d %H:%M:%S')
 
         if sensor_type == 'ph':
             start_name = 'PH Calibration Start'
@@ -905,9 +904,8 @@ def start_sensor_calibration():
 
         start_param = Parameter.query.filter_by(controlled_parameter_name=start_name).first()
         status_param = Parameter.query.filter_by(controlled_parameter_name=status_name).first()
-        updated_param = Parameter.query.filter_by(controlled_parameter_name=updated_name).first()
 
-        if not start_param or not status_param or not updated_param:
+        if not start_param or not status_param:
             return jsonify({'error': 'Calibration parameters not found'}), 404
 
         start_param.value = '1'
@@ -915,9 +913,6 @@ def start_sensor_calibration():
 
         status_param.value = 'Выполняется'
         status_param.value_date = now
-
-        updated_param.value = now_str
-        updated_param.value_date = now
 
         db.session.commit()
 
