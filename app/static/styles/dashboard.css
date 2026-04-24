@@ -237,7 +237,13 @@ nav ul{
 }
 nav ul::-webkit-scrollbar{ display:none; }
 nav ul li{ flex:0 0 auto; }
-nav ul li:last-child{ margin-left:auto; }
+
+nav ul li.nav-right{
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
 nav ul li a{
   position:relative;            /* для ::after */
@@ -640,4 +646,45 @@ body.no-scroll{ overflow: hidden; }
   margin-top: 18px;
   font-size: 22px;
   font-weight: 800;
+}
+
+.nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-right a {
+  margin-left: 2px;
+}
+
+.status-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.status-ok {
+    color: #16a34a;
+}
+
+.status-warn {
+    color: #f59e0b;
+}
+
+.status-error {
+    color: #dc2626;
+}
+
+.status-unknown {
+    color: #9ca3af;
 }

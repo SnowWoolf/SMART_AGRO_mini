@@ -28,12 +28,70 @@
 			<li><a href="{{ url_for('main.light_control') }}">Освещение</a></li>
 -->
             <li><a href="{{ url_for('main.mixing_parameters') }}">Параметры</a></li>
-            <li><a href="{{ url_for('main.logout') }}">Выйти</a></li>
+			
+			<li class="nav-right">
+				{% if wifi_available %}
+				<span id="wifi-icon" class="status-icon status-unknown" title="WiFi">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M12 18.5l2.2 2.2L12 22.9l-2.2-2.2L12 18.5z"/>
+						<path d="M5.6 12.1a9 9 0 0 1 12.8 0l-2.1 2.1a6 6 0 0 0-8.6 0l-2.1-2.1z"/>
+						<path d="M1.4 7.9a15 15 0 0 1 21.2 0l-2.1 2.1a12 12 0 0 0-17 0L1.4 7.9z"/>
+					</svg>
+				</span>
+				{% endif %}
+
+				<span id="gsm-icon" class="status-icon status-unknown" title="GSM">
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<rect x="3" y="14" width="3" height="7" rx="1"/>
+						<rect x="8" y="11" width="3" height="10" rx="1"/>
+						<rect x="13" y="7" width="3" height="14" rx="1"/>
+						<rect x="18" y="3" width="3" height="18" rx="1"/>
+					</svg>
+				</span>
+			
+				<a href="{{ url_for('main.logout') }}">Выйти</a>
+			</li>
+
         </ul>
     </nav>
     <div class="content">
         {% block content %}{% endblock %}
     </div>
     {% block scripts %}{% endblock %}
+	
+<script>
+function updateNavStatus() {
+    fetch('/status_summary')
+        .then(r => r.json())
+        .then(data => {
+            const wifi = document.getElementById('wifi-icon');
+const gsm = document.getElementById('gsm-icon');
+
+if (wifi && data.wifi !== undefined) {
+    wifi.className = 'status-icon ' + getStatusClass(data.wifi);
+    wifi.title = 'WiFi: ' + (data.wifi_text || '—');
+}
+
+if (gsm && data.gsm !== undefined) {
+    gsm.className = 'status-icon ' + getStatusClass(data.gsm);
+    gsm.title = 'GSM: ' + (data.gsm_text || '—');
+}
+        })
+        .catch(() => {});
+}
+
+function getStatusClass(state) {
+    if (state === 'ok') return 'status-ok';
+    if (state === 'warn') return 'status-warn';
+    if (state === 'error') return 'status-error';
+    return 'status-unknown';
+}
+
+setInterval(updateNavStatus, 5000);
+document.addEventListener('DOMContentLoaded', updateNavStatus);
+
+
+</script>
+
 </body>
 </html>

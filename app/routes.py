@@ -89,7 +89,8 @@ def get_wifi_ifaces():
         result = subprocess.run(
             [IW_BIN, "dev"],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=2
         )
 
         print("IW DEV RC:", result.returncode)
@@ -135,7 +136,8 @@ def get_wifi_client_status() -> str:
         wpa = subprocess.run(
             [WPA_CLI_BIN, "-i", sta_iface, "status"],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=2
         )
 
         print("WPA STATUS RC:", wpa.returncode)
@@ -752,6 +754,7 @@ def mixing_parameters():
 
     wifi_client = None
     conf_path = "/etc/smart-wifi/wifi.conf"
+    wifi_available = os.path.exists("/etc/smart-wifi/wifi.conf")
 
     if os.path.exists(conf_path):
         wifi_conf = read_wifi_conf(conf_path)
@@ -768,6 +771,7 @@ def mixing_parameters():
         mixing_params=mixing_params,
         calibration_params=calibration_params,
         wifi_client=wifi_client,
+        wifi_available=wifi_available,
         modem_state=read_modem_state(),
         modem_config=read_modem_config(),
         title='Параметры'
@@ -1714,4 +1718,61 @@ modem_route_priority={1 if str(data.get("modem_route_priority", "0")) == "1" els
     with open(MODEM_CONF_PATH, "w", encoding="utf-8") as f:
         f.write(content)
         
-        
+@bp.route('/status_summary')
+@login_required
+def status_summary():
+    # WiFi
+    wifi_status = get_wifi_client_status()
+
+    if "Подключен, получен IP" in wifi_status:
+        wifi_state = "ok"
+    elif "Подключен" in wifi_status:
+        wifi_state = "warn"
+    elif "Адаптер не обнаружен" in wifi_status:
+        wifi_state = "unknown"
+    else:
+        wifi_state = "error"
+
+    # GSM
+    modem_state = read_modem_state()
+
+    gsm_state = "unknown"
+    gsm_text = "Нет данных"
+
+    if modem_state:
+        gsm_ip = modem_state.get("ipaddr", "")
+        level = (modem_state.get("level") or "").lower()
+        net_type = modem_state.get("net_type") or "GSM"
+
+        if gsm_ip:
+            if level in ("excellent", "good"):
+                gsm_state = "ok"
+            elif level in ("fair",):
+                gsm_state = "warn"
+            elif level in ("poor", "no signal"):
+                gsm_state = "error"
+            else:
+                gsm_state = "ok"
+
+            gsm_text = f"{net_type}: {level or 'подключен'}, IP {gsm_ip}"
+        else:
+            gsm_state = "error"
+            gsm_text = f"{net_type}: нет IP"
+    else:
+        gsm_state = "unknown"
+        gsm_text = "Модем не обнаружен или нет данных"
+
+    return jsonify({
+        "wifi": wifi_state,
+        "wifi_text": wifi_status,
+        "gsm": gsm_state,
+        "gsm_text": gsm_text
+    })
+    
+    
+@bp.app_context_processor
+def inject_status_flags():
+    return {
+        "wifi_available": os.path.exists("/etc/smart-wifi/wifi.conf"),
+        "modem_available": os.path.exists(MODEM_INFO_PATH)
+    }

@@ -79,8 +79,8 @@ mix_state = {
 }
 
 calibration_prev_states = {
-    "PH": None,
-    "EC": None,
+    "PH": {"state": "idle", "seen_active": False},
+    "EC": {"state": "idle", "seen_active": False},
 }
 
 # Словарь связанных критических условий:
@@ -126,28 +126,20 @@ def is_calibration_readonly_param(name: str) -> bool:
       - обычный sync не должен их откатывать назад
     """
     return name in {
-        # pH растворы / температура
         "ph_buffer_1",
         "ph_buffer_2",
 
-        # EC растворы / температура
         "ec_solution_1",
         "ec_solution_2",
         "ec_calibration_temperature",
 
-        # служебные регистры запуска pH
         "PH_CALC_SAVE",
         "PH_CALC_DO",
         "PH Calibration Start",
-        "PH Calibration Status",
-        "PH Calibration Updated",
 
-        # служебные регистры запуска EC
         "EC_CALC_SAVE",
         "EC_CALC_DO",
         "EC Calibration Start",
-        "EC Calibration Status",
-        "EC Calibration Updated",
     }
 
 
@@ -290,7 +282,7 @@ def update_text_parameter(name: str, value: str):
         session.commit()
 
 
-def calibration_status_from_bits(sensor_name: str, err: int, stage1: int, stay: int, stage2: int) -> str:
+def calibration_status_from_bits(sensor_name: str, err: int, stage1: int, stay: int, stage2: int):
     if err:
         return f"Калибровка {sensor_name}: ошибка"
 
@@ -303,20 +295,11 @@ def calibration_status_from_bits(sensor_name: str, err: int, stage1: int, stay: 
     if stage2:
         return f"Калибровка {sensor_name}: стадия 2"
 
-    return f"Калибровка {sensor_name} не выполняется"
+    # idle: ничего не пишем, оставляем последний статус
+    return None
 
 
 def read_calibration_status_direct(prefix: str, sensor_name: str):
-    """
-    Читает DI[0..3] напрямую из датчика:
-      DI0 = ошибка калибровки
-      DI1 = стадия 1
-      DI2 = ожидание смены жидкости
-      DI3 = стадия 2
-
-    За опорный Parameter берём *_CALC_SAVE, потому что он точно указывает
-    на нужный датчик, COM-порт, адрес и скорость.
-    """
     base = get_parameter(f"{prefix}_CALC_SAVE")
     dev_name = f"{base.device_type}_addr{base.network_address}"
 
@@ -333,22 +316,36 @@ def read_calibration_status_direct(prefix: str, sensor_name: str):
     stage2 = int(bits[3])
 
     status = calibration_status_from_bits(sensor_name, err, stage1, stay, stage2)
-    update_text_parameter(f"{prefix} Calibration Status", status)
-    
-    # --- детекция завершения ---
-    prev = calibration_prev_states.get(prefix)
+    if status:
+        update_text_parameter(f"{prefix} Calibration Status", status)
 
-    is_active = (stage1 or stage2 or stay)
+    # --- детекция успешного завершения ---
+    state = calibration_prev_states.setdefault(
+        prefix,
+        {"state": "idle", "seen_active": False}
+    )
+
+    is_active = bool(stage1 or stage2 or stay)
     is_idle = (not err and not is_active)
 
-    if prev == "active" and is_idle:
-        # считаем что калибровка успешно завершена
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        update_text_parameter(f"{prefix} Calibration Updated", now_str)
-        insert_log_message(f"Калибровка {sensor_name} завершена", "INFO")
+    if is_active:
+        state["state"] = "active"
+        state["seen_active"] = True
+        return
 
-    # обновляем состояние
-    calibration_prev_states[prefix] = "active" if is_active else "idle"
+    if err:
+        state["state"] = "error"
+        state["seen_active"] = False
+        return
+
+    if state["state"] == "active" and state["seen_active"] and is_idle:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        update_text_parameter(f"{prefix} Calibration Status", f"Калибровка {sensor_name}: успешно")
+        update_text_parameter(f"{prefix} Calibration Updated", now_str)
+        insert_log_message(f"Калибровка {sensor_name} завершена успешно", "INFO")
+
+    state["state"] = "idle"
+    state["seen_active"] = False
 
 
 def get_mixing_parameters() -> MixingParameter:
