@@ -225,6 +225,12 @@
 		<div id="ph_calibration_status" style="margin-top: 10px;">
 			{{ calibration_params.ph_calibration_status }}
 		</div>
+		<div style="margin-top: 6px; font-size: 13px; color: #666;">
+			Последняя калибровка:
+			<span id="ph_calibration_updated">
+				{{ calibration_params.ph_calibration_updated or '—' }}
+			</span>
+		</div>
 
 		</div>
     </section>
@@ -310,6 +316,13 @@
 	
 	<div id="ec_calibration_status" style="margin-top: 10px;">
 		{{ calibration_params.ec_calibration_status }}
+	</div>
+	
+	<div style="margin-top: 6px; font-size: 13px; color: #666;">
+		Последняя калибровка:
+		<span id="ec_calibration_updated">
+			{{ calibration_params.ec_calibration_updated or '—' }}
+		</span>
 	</div>
 
 </div>
@@ -514,6 +527,8 @@ function refreshCalibrationStatuses() {
         .then(data => {
             const phEl = document.getElementById('ph_calibration_status');
             const ecEl = document.getElementById('ec_calibration_status');
+            const phUpdated = document.getElementById('ph_calibration_updated');
+            const ecUpdated = document.getElementById('ec_calibration_updated');
 
             if (phEl && data['PH Calibration Status']) {
                 phEl.innerText = data['PH Calibration Status'];
@@ -521,6 +536,14 @@ function refreshCalibrationStatuses() {
 
             if (ecEl && data['EC Calibration Status']) {
                 ecEl.innerText = data['EC Calibration Status'];
+            }
+
+            if (phUpdated && data['PH Calibration Updated']) {
+                phUpdated.innerText = data['PH Calibration Updated'];
+            }
+
+            if (ecUpdated && data['EC Calibration Updated']) {
+                ecUpdated.innerText = data['EC Calibration Updated'];
             }
         })
         .catch(() => {});

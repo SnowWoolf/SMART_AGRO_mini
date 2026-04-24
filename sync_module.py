@@ -78,6 +78,11 @@ mix_state = {
     "expected_ph": None,
 }
 
+calibration_prev_states = {
+    "PH": None,
+    "EC": None,
+}
+
 # Словарь связанных критических условий:
 # формат: (параметр1, должен_быть_включен1, параметр2, должен_быть_включен2)
 CRITICAL_LINKS = [
@@ -134,11 +139,15 @@ def is_calibration_readonly_param(name: str) -> bool:
         "PH_CALC_SAVE",
         "PH_CALC_DO",
         "PH Calibration Start",
+        "PH Calibration Status",
+        "PH Calibration Updated",
 
         # служебные регистры запуска EC
         "EC_CALC_SAVE",
         "EC_CALC_DO",
         "EC Calibration Start",
+        "EC Calibration Status",
+        "EC Calibration Updated",
     }
 
 
@@ -325,6 +334,21 @@ def read_calibration_status_direct(prefix: str, sensor_name: str):
 
     status = calibration_status_from_bits(sensor_name, err, stage1, stay, stage2)
     update_text_parameter(f"{prefix} Calibration Status", status)
+    
+    # --- детекция завершения ---
+    prev = calibration_prev_states.get(prefix)
+
+    is_active = (stage1 or stage2 or stay)
+    is_idle = (not err and not is_active)
+
+    if prev == "active" and is_idle:
+        # считаем что калибровка успешно завершена
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        update_text_parameter(f"{prefix} Calibration Updated", now_str)
+        insert_log_message(f"Калибровка {sensor_name} завершена", "INFO")
+
+    # обновляем состояние
+    calibration_prev_states[prefix] = "active" if is_active else "idle"
 
 
 def get_mixing_parameters() -> MixingParameter:
