@@ -2,113 +2,11 @@
 {% block content %}
 
 <div class="mixing-grid">
-
-    <!-- Параметры EC -->
-    <section class="card">
-        <h2>Параметры EC</h2>
-        <table table--compact>
-            <tr>
-                <th>Целевое значение EC (mS/cm)</th>
-                <td id="target_ec">{{ mixing_params.target_ec }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('target_ec', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-            <tr>
-                <th>Допустимое отклонение EC (mS/cm)</th>
-                <td id="ec_deviation">{{ mixing_params.ec_deviation }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('ec_deviation', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-            <tr>
-                <th>Плотность компонента A (г/л)</th>
-                <td id="density_a">{{ mixing_params.density_a }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('density_a', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-            <tr>
-                <th>Плотность компонента B (г/л)</th>
-                <td id="density_b">{{ mixing_params.density_b }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('density_b', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-        </table>
-    </section>
-
-    <!-- Параметры pH -->
-    <section class="card">
-        <h2>Параметры pH</h2>
-        <table table--compact>
-            <tr>
-                <th>Целевое значение pH</th>
-                <td id="target_ph">{{ mixing_params.target_ph }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('target_ph', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-            <tr>
-                <th>Допустимое отклонение pH</th>
-                <td id="ph_deviation">{{ mixing_params.ph_deviation }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('ph_deviation', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-            <tr>
-                <th>Концентрация кислоты (%)</th>
-                <td id="density_acid">{{ mixing_params.density_acid }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('density_acid', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-            <tr>
-                <th>Буферность раствора (%)</th>
-                <td id="bf">{{ mixing_params.bf }}</td>
-                <td>
-                    <button class="btn btn-primary"
-                            onclick="openModal('bf', 'mixing', false)"
-                            {% if current_user.username != 'admin' %} disabled {% endif %}>
-                        Изменить
-                    </button>
-                </td>
-            </tr>
-        </table>
-    </section>
-
+    
     <!-- Общие параметры -->
     <section class="card">
         <h2>Общие параметры</h2>
-        <table table--compact>
+        <table class="table--compact">
             <tr>
                 <th>Объём бака (л)</th>
                 <td id="tank_volume">{{ mixing_params.tank_volume }}</td>
@@ -166,11 +64,113 @@
             </tr>
         </table>
     </section>
+	
+	<!-- Параметры pH -->
+    <section class="card">
+        <h2>Параметры pH</h2>
+        <table class="table--compact">
+            <tr>
+                <th>Целевое значение pH</th>
+                <td id="target_ph">{{ mixing_params.target_ph }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('target_ph', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <th>Допустимое отклонение pH</th>
+                <td id="ph_deviation">{{ mixing_params.ph_deviation }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('ph_deviation', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <th>Концентрация кислоты (%)</th>
+                <td id="density_acid">{{ mixing_params.density_acid }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('density_acid', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <th>Буферность раствора (%)</th>
+                <td id="bf">{{ mixing_params.bf }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('bf', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+        </table>
+    </section>
+	
+	<!-- Параметры EC -->
+    <section class="card">
+        <h2>Параметры EC</h2>
+        <table class="table--compact">
+            <tr>
+                <th>Целевое значение EC (mS/cm)</th>
+                <td id="target_ec">{{ mixing_params.target_ec }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('target_ec', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <th>Допустимое отклонение EC (mS/cm)</th>
+                <td id="ec_deviation">{{ mixing_params.ec_deviation }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('ec_deviation', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <th>Плотность компонента A (г/л)</th>
+                <td id="density_a">{{ mixing_params.density_a }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('density_a', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+            <tr>
+                <th>Плотность компонента B (г/л)</th>
+                <td id="density_b">{{ mixing_params.density_b }}</td>
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="openModal('density_b', 'mixing', false)"
+                            {% if current_user.username != 'admin' %} disabled {% endif %}>
+                        Изменить
+                    </button>
+                </td>
+            </tr>
+        </table>
+    </section>
 
     <!-- Калибровка pH -->
     <section class="card">
         <h2>Калибровка pH</h2>
-        <table table--compact>
+        <table class="table--compact">
             
             <tr>
                 <th>Буфер 1 (pH)</th>
@@ -209,25 +209,30 @@
         </table>
 
         <div style="margin-top: 16px;">
-    <div style="margin-bottom: 12px; font-weight: 700; color: #c0392b;">
+		<div style="margin-bottom: 12px; font-weight: 700; color: #c0392b;">
         ПЕРЕД ПРОДОЛЖЕНИЕМ ОЗНАКОМЬСЯ С ИНСТРУКЦИЕЙ!
         <a href="https://wiki.iarduino.ru/page/ph-sensor-modbus/#h3_9" target="_blank" rel="noopener noreferrer" style="margin-left: 8px;">
             Открыть инструкцию
         </a>
-    </div>
+		</div>
 
-    <button class="btn btn-primary"
+		<button class="btn btn-primary"
             onclick="startCalibration('ph')"
             {% if current_user.username != 'admin' %} disabled {% endif %}>
         Старт калибровки
-    </button>
-</div>
+		</button>
+		
+		<div id="ph_calibration_status" style="margin-top: 10px;">
+			{{ calibration_params.ph_calibration_status }}
+		</div>
+
+		</div>
     </section>
 
     <!-- Калибровка EC -->
     <section class="card">
         <h2>Калибровка EC</h2>
-        <table table--compact>
+        <table class="table--compact">
             <tr>
                 <th>Температура калибровки (°C)</th>
                 <td id="ec_calibration_temperature">{{ calibration_params.ec_calibration_temperature }}</td>
@@ -302,10 +307,107 @@
             {% if current_user.username != 'admin' %} disabled {% endif %}>
         Старт калибровки
     </button>
+	
+	<div id="ec_calibration_status" style="margin-top: 10px;">
+		{{ calibration_params.ec_calibration_status }}
+	</div>
+
 </div>
     </section>
 
-    <!-- Модальное окно изменения значения -->
+<!-- Параметры WiFi клиента -->
+<!-- Карточка будет отображаться только если существует файл /etc/smart-wifi/wifi.conf -->
+{% if wifi_client %}
+<section class="card">
+    <h2>Настройка WiFi клиента</h2>
+    <table class="table--compact">
+        <tr>
+            <th>Статус подключения</th>
+            <td id="wifi_client_status">{{ wifi_client.status or 'Адаптер не обнаружен' }}</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Включить режим WiFi клиента</th>
+            <td>
+                <label style="display: inline-flex; align-items: center; gap: 8px;">
+                    <input type="checkbox"
+                           id="sta_enabled"
+                           {% if wifi_client.sta_enabled %}checked{% endif %}
+                           {% if current_user.username != 'admin' %} disabled {% endif %}>
+                    <span>Включено</span>
+                </label>
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Имя сети</th>
+            <td>
+                <input type="text"
+                       id="sta_ssid"
+                       class="form-control"
+                       value="{{ wifi_client.sta_ssid }}"
+                       placeholder="Введите имя WiFi сети"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Пароль сети</th>
+            <td>
+                <input type="password"
+                       id="sta_psk"
+                       class="form-control"
+                       value="{{ wifi_client.sta_psk }}"
+                       placeholder="Введите пароль WiFi сети"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Скрытая сеть</th>
+            <td>
+                <label style="display: inline-flex; align-items: center; gap: 8px;">
+                    <input type="checkbox"
+                           id="sta_hidden"
+                           {% if wifi_client.sta_hidden %}checked{% endif %}
+                           {% if current_user.username != 'admin' %} disabled {% endif %}>
+                    <span>Да</span>
+                </label>
+            </td>
+            <td></td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
+		<button class="btn btn-primary"
+            onclick="saveWifiClientSettings()"
+            {% if current_user.username != 'admin' %} disabled {% endif %}>
+        Записать настройки
+		</button>
+
+		<button class="btn btn-secondary"
+            onclick="restartWifiService()"
+            {% if current_user.username != 'admin' %} disabled {% endif %}>
+        Перезапуск сервиса
+		</button>
+	</div>
+</section>
+{% endif %}
+	
+<!-- Управление устройством -->
+    <section class="card">
+        <h2>Управление устройством</h2>
+
+        <div style="margin-top: 8px;">
+            <button class="btn btn-primary"
+                    onclick="rebootDevice()"
+                    {% if current_user.username != 'admin' %} disabled {% endif %}>
+                Перезагрузить УМ
+            </button>
+        </div>
+    </section>
+
+<!-- Модальное окно изменения значения для калибровки датчиков -->
     <div id="valueModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
@@ -332,6 +434,7 @@
 
 </div>
 
+<!-- Раздел для JS-функций -->
 <script>
     const CALIBRATION_PASSWORD = 'Allmonitoring';
 
@@ -402,6 +505,38 @@
             'parameter_value': parameterValue
         }));
     }
+	
+let calibrationStatusTimer = null;
+
+function refreshCalibrationStatuses() {
+    fetch('/get_parameters')
+        .then(r => r.json())
+        .then(data => {
+            const phEl = document.getElementById('ph_calibration_status');
+            const ecEl = document.getElementById('ec_calibration_status');
+
+            if (phEl && data['PH Calibration Status']) {
+                phEl.innerText = data['PH Calibration Status'];
+            }
+
+            if (ecEl && data['EC Calibration Status']) {
+                ecEl.innerText = data['EC Calibration Status'];
+            }
+        })
+        .catch(() => {});
+}
+
+	function startCalibrationStatusPolling() {
+		if (calibrationStatusTimer) {
+			clearInterval(calibrationStatusTimer);
+		}
+
+		refreshCalibrationStatuses();
+
+		calibrationStatusTimer = setInterval(function () {
+			refreshCalibrationStatuses();
+		}, 1000);
+	}
 
     function startCalibration(sensorType) {
         const sensorName = sensorType === 'ph' ? 'pH' : 'EC';
@@ -415,35 +550,19 @@
         xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
 
         xhr.onload = function () {
-            if (xhr.status === 200) {
-                const statusId = sensorType + '_calibration_status';
-                const updatedId = sensorType + '_calibration_updated';
+			if (xhr.status === 200) {
+				const statusId = sensorType + '_calibration_status';
+				const statusCell = document.getElementById(statusId);
 
-                const now = new Date();
-                const pad = (n) => String(n).padStart(2, '0');
-                const formattedNow =
-                    now.getFullYear() + '-' +
-                    pad(now.getMonth() + 1) + '-' +
-                    pad(now.getDate()) + ' ' +
-                    pad(now.getHours()) + ':' +
-                    pad(now.getMinutes()) + ':' +
-                    pad(now.getSeconds());
+				if (statusCell) {
+					statusCell.innerText = 'Запуск...';
+				}
 
-                const statusCell = document.getElementById(statusId);
-                const updatedCell = document.getElementById(updatedId);
-
-                if (statusCell) {
-                    statusCell.innerText = 'Выполняется';
-                }
-                if (updatedCell) {
-                    updatedCell.innerText = formattedNow;
-                }
-
-                alert('Калибровка ' + sensorName + ' запущена.');
-            } else {
-                alert('Ошибка при запуске калибровки ' + sensorName + '.');
-            }
-        };
+				startCalibrationStatusPolling();
+			} else {
+				alert('Ошибка при запуске калибровки ' + sensorName + '.');
+			}
+		};
 
         xhr.send(JSON.stringify({
             'sensor_type': sensorType
@@ -456,6 +575,139 @@
             closeModal();
         }
     }
+	
+	function saveWifiClientSettings() {
+        const staEnabled = document.getElementById('sta_enabled').checked ? 1 : 0;
+        const staSsid = document.getElementById('sta_ssid').value.trim();
+        const staPsk = document.getElementById('sta_psk').value;
+        const staHidden = document.getElementById('sta_hidden').checked ? 1 : 0;
+
+        if (staEnabled && staSsid === '') {
+            alert('Введите имя WiFi сети.');
+            return;
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/update_wifi_client_settings', true);
+        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+
+        xhr.onload = function () {
+			let resp = {};
+
+			try {
+				resp = JSON.parse(xhr.responseText || '{}');
+			} catch (e) {}
+
+			if (xhr.status >= 200 && xhr.status < 300) {
+				if (resp.status === 'warning') {
+					alert(resp.message || 'Настройки записаны, но сервис не был применён.');
+				} else {
+					alert(resp.message || 'Настройки WiFi клиента записаны.');
+				}
+			} else {
+				alert(resp.message || 'Ошибка при сохранении настроек WiFi');
+			}
+		};
+
+        xhr.send(JSON.stringify({
+            'sta_enabled': staEnabled,
+            'sta_ssid': staSsid,
+            'sta_psk': staPsk,
+            'sta_hidden': staHidden
+        }));
+    }
+	
+	function restartWifiService() {
+		if (!confirm('Перезапустить сервис WiFi?')) {
+			return;
+		}
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('POST', '/restart_wifi_service', true);
+		xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+
+		xhr.onload = function () {
+			let resp = {};
+			try {
+				resp = JSON.parse(xhr.responseText || '{}');
+			} catch (e) {}
+
+			if (xhr.status >= 200 && xhr.status < 300) {
+				if (resp.status === 'warning') {
+					alert(resp.message || 'Сервис не запущен.');
+				} else {
+					alert(resp.message || 'Сервис перезапущен.');
+				}
+			} else {
+				alert(resp.message || 'Ошибка при перезапуске сервиса.');
+			}
+		};
+
+		xhr.onerror = function () {
+			alert('Сетевая ошибка.');
+		};
+
+		xhr.send(JSON.stringify({}));
+	}
+
+    function rebootDevice() {
+        const msg = 'Устройство будет перезагружено. Это может занять несколько минут, дождитесь мигания индикатора Режим УМ и обновите страницу';
+
+        if (!confirm(msg)) {
+            return;
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/reboot_device', true);
+        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+
+        xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                alert('Команда перезагрузки отправлена.');
+            } else {
+                alert('Ошибка при отправке команды перезагрузки.');
+            }
+        };
+
+        xhr.onerror = function () {
+            alert('Сетевая ошибка при отправке команды перезагрузки.');
+        };
+
+        xhr.send(JSON.stringify({}));
+    }
+	
+	let calibrationStatusTimer = null;
+
+function refreshCalibrationStatuses() {
+    fetch('/get_parameters')
+        .then(r => r.json())
+        .then(data => {
+            const phEl = document.getElementById('ph_calibration_status');
+            const ecEl = document.getElementById('ec_calibration_status');
+
+            if (phEl && data['PH Calibration Status']) {
+                phEl.innerText = data['PH Calibration Status'];
+            }
+
+            if (ecEl && data['EC Calibration Status']) {
+                ecEl.innerText = data['EC Calibration Status'];
+            }
+        })
+        .catch(() => {});
+}
+
+function startCalibrationStatusPolling() {
+    if (calibrationStatusTimer) {
+        clearInterval(calibrationStatusTimer);
+    }
+
+    refreshCalibrationStatuses();
+
+    calibrationStatusTimer = setInterval(function () {
+        refreshCalibrationStatuses();
+    }, 1000);
+}
+
 </script>
 
 {% endblock %}

@@ -1,3 +1,4 @@
+{#C:\PyCharmProjects\agrosmart ЗОНА 3\Зона 3\app\templates\base.html#}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -21,10 +22,13 @@
         <ul>
             <li><a href="{{ url_for('main.index') }}">Главная</a></li>
             <li><a href="{{ url_for('main.scenarios') }}">Сценарии</a></li>
-            <!--<li><a href="{{ url_for('main.plantings') }}">Контроль посадки</a></li>
-            <li><a href="{{ url_for('main.cultures') }}">Справочник</a></li>-->
-            <li><a href="{{ url_for('main.mixing_parameters') }}">Растворный узел</a></li>
-            <li><a href="{{ url_for('main.logout') }}">мини Офис - Выйти</a></li>
+<!--		
+			<li><a href="{{ url_for('main.cultures') }}">Справочник</a></li>
+            <li><a href="{{ url_for('main.plantings') }}">Контроль посадки</a></li>
+			<li><a href="{{ url_for('main.light_control') }}">Освещение</a></li>
+-->
+            <li><a href="{{ url_for('main.mixing_parameters') }}">Параметры</a></li>
+            <li><a href="{{ url_for('main.logout') }}">Выйти</a></li>
         </ul>
     </nav>
     <div class="content">

@@ -1,3 +1,6 @@
+// C:\PyCharmProjects\agrosmart ЗОНА 3\Зона 3\app\static\scripts\main2.js
+
+
 // нормализуем "включено": сервер может прислать '1', '1.0' или 1
 const isOn = (v) => v === '1' || v === '1.0' || v === 1;
 
@@ -7,122 +10,115 @@ async function updateData() {
         const data = await response.json();
 
         const updateButton = (id, key) => {
-          const btn = document.getElementById(id);
-          if (!btn) return;
-          const on = isOn(data[key]);
+            const btn = document.getElementById(id);
+            if (!btn) return;
 
-          // меняем только состояние
-          btn.classList.toggle('on',  on);
-          btn.classList.toggle('off', !on);
+            const on = isOn(data[key]);
 
-          // доступность/хуки
-          btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-          btn.dataset.state = on ? 'on' : 'off';
-
-          // опционально: подсказка состояния при наведении (текст кнопки не меняем)
-          btn.title = on ? 'вкл' : 'откл';
+            btn.classList.toggle('on', on);
+            btn.classList.toggle('off', !on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.dataset.state = on ? 'on' : 'off';
+            btn.title = on ? 'вкл' : 'откл';
         };
+
+        const updateDynamicControls = () => {
+            document.querySelectorAll('.status-button').forEach(btn => {
+                const key = btn.id;
+                if (!key || !(key in data)) return;
+
+                const on = isOn(data[key]);
+
+                btn.classList.toggle('on', on);
+                btn.classList.toggle('off', !on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                btn.dataset.state = on ? 'on' : 'off';
+                btn.title = on ? 'вкл' : 'откл';
+            });
+
+            document.querySelectorAll('.dynamic-value-btn').forEach(btn => {
+                const key = btn.id;
+                if (!key || !(key in data)) return;
+
+                const valueNode = btn.querySelector('.value-btn-current');
+                if (!valueNode) return;
+
+                const raw = data[key];
+                const num = parseFloat(raw);
+
+                if (!isNaN(num)) {
+                    valueNode.textContent = num.toFixed(0);
+                } else {
+                    valueNode.textContent = raw;
+                }
+            });
+        };
+
         const updateText = (id, key) => {
             const elem = document.getElementById(id);
             if (!elem) return;
 
             const raw = data[key];
             const num = parseFloat(raw);
+
             if (!isNaN(num)) {
-                // округляем до десятых
                 elem.textContent = num.toFixed(0);
             } else {
-                // не число — показываем как есть
                 elem.textContent = raw;
             }
         };
+
         const updateText2 = (id, key) => {
             const elem = document.getElementById(id);
             if (!elem) return;
 
             const raw = data[key];
             const num = parseFloat(raw);
+
             if (!isNaN(num)) {
-                // округляем до десятых
                 elem.textContent = num.toFixed(1);
             } else {
-                // не число — показываем как есть
                 elem.textContent = raw;
             }
         };
 
-
         const updateStatusText = (id, key) => {
             const elem = document.getElementById(id);
-            if (elem) {
-                elem.textContent = data[key] === '1' ? 'вкл' : 'откл';
-            }
+            if (!elem) return;
+            elem.textContent = isOn(data[key]) ? 'вкл' : 'откл';
         };
 
         const updateTimeText = (id, key) => {
             const elem = document.getElementById(id);
-            if (elem) {
-                const value = parseFloat(data[key]) || 0;
-                elem.textContent = (value / 10).toFixed(0);
-            }
+            if (!elem) return;
+
+            const value = parseFloat(data[key]) || 0;
+            elem.textContent = (value / 10).toFixed(0);
         };
 
         const updateBinaryIndicator = (id, key) => {
-          const indicator = document.getElementById(id);
-          if (!indicator) return;
-          if (isOn(data[key])) {
-            indicator.classList.remove('empty');
-            indicator.classList.add('filled');
-          } else {
-            indicator.classList.remove('filled');
-            indicator.classList.add('empty');
-          }
+            const indicator = document.getElementById(id);
+            if (!indicator) return;
+
+            if (isOn(data[key])) {
+                indicator.classList.remove('empty');
+                indicator.classList.add('filled');
+            } else {
+                indicator.classList.remove('filled');
+                indicator.classList.add('empty');
+            }
         };
 
+        // ДИНАМИЧЕСКИЕ КНОПКИ И ПОЛЯ ИЗ БД
+        updateDynamicControls();
 
-        updateButton('napolnit', 'Наполнение');
-        updateButton('peremesh', 'Перемешивание');
-        updateButton('sliv', 'Слив');
-        updateButton('nasos', 'Насос');
-        updateButton('svet1', 'Свет 12');
-        updateButton('svet2', 'Свет 34');
-
-        updateButton('polka1', 'Полка 1');
-        updateButton('polka2', 'Полка 2');
-        updateButton('polka3', 'Полка 3');
-        updateButton('polka4', 'Полка 4');
-
-        updateButton('mode_param', 'Режим эксплуатации');
-        updateButton('mixing', 'Растворный узел');
-
-        updateButton('chanel_1_1_white', 'КАНАЛ 1 БЕЛЫЙ');
-        updateText('level_1_1_white',    'ЯРКОСТЬ 1 БЕЛЫЙ');
-        updateButton('chanel_1_1_red',   'КАНАЛ 1 КРАСНЫЙ');
-        updateText('level_1_1_red',      'ЯРКОСТЬ 1 КРАСНЫЙ');
-		updateButton('chanel_lamp2',   'Канал лампы на спилантес');
-        updateText('level_lamp2',      'Яркость лампы на спилантес');
-		
+        // ОСТАЛЬНОЕ ОСТАВЛЯЕМ КАК БЫЛО
         updateText2('UNIT_ID_PH', 'Уровень PH');
         updateText2('UNIT_ID_EC', 'Уровень EC');
-		
-		updateText2('p_plus_ch1', 'P+ канал 1');
-		updateText2('voltage', 'Напряжение');
-		updateText2('current_ch1', 'Ток канал 1');
-		updateText2('frequency', 'Частота');
-		updateText2('a_plus_ch1', 'А+ канал 1');
-		
 
-        // Обновляем графические индикаторы для основного бака
         updateBinaryIndicator('indicator-level-1', 'Уровень бак максимум');
         updateBinaryIndicator('indicator-level-2', 'Уровень бак средний');
         updateBinaryIndicator('indicator-level-3', 'Уровень бак минимум');
-
-
-        // Обновляем графические индикаторы для баков компонентов
-
-        updateBinaryIndicator('indicator-level-A1', 'Уровень А максимум');
-        updateBinaryIndicator('indicator-level-B1', 'Уровень В максимум');
-        updateBinaryIndicator('indicator-level-K1', 'Уровень К максимум');
 
         updateBinaryIndicator('indicator-level-A2', 'Уровень А минимум');
         updateBinaryIndicator('indicator-level-B2', 'Уровень В минимум');
@@ -131,6 +127,7 @@ async function updateData() {
         updateStatusText('statusA', 'Подача А в бак');
         updateStatusText('statusB', 'Подача В в бак');
         updateStatusText('statusK', 'Подача кислоты в бак');
+
         updateTimeText('timeA', 'Время подачи A в бак');
         updateTimeText('timeB', 'Время подачи В в бак');
         updateTimeText('timeK', 'Время подачи кислоты в бак');
@@ -171,10 +168,45 @@ async function setValue() {
     }
 }
 
-function openModal(parameterName) {
-    document.getElementById('parameter-name').value = parameterName;
-    document.getElementById('parameter-value').value = '';
-    document.getElementById('valueModal').style.display = 'block';
+function openModal(parameterName, minValue = 0, maxValue = 100, stepValue = 1, currentValue = 0) {
+    const nameEl = document.getElementById('parameter-name');
+    const valueEl = document.getElementById('parameter-value');
+    const valueLabelEl = document.getElementById('parameter-value-label');
+    const modalEl = document.getElementById('valueModal');
+
+    if (!nameEl || !valueEl || !valueLabelEl || !modalEl) return;
+
+    nameEl.value = parameterName;
+    valueEl.min = minValue;
+    valueEl.max = maxValue;
+    valueEl.step = stepValue;
+    valueEl.value = currentValue;
+
+    valueLabelEl.textContent = currentValue;
+    modalEl.style.display = 'block';
+}
+
+function syncValueLabel() {
+    const valueEl = document.getElementById('parameter-value');
+    const valueLabelEl = document.getElementById('parameter-value-label');
+    if (!valueEl || !valueLabelEl) return;
+    valueLabelEl.textContent = valueEl.value;
+}
+
+function changeSliderBy(delta) {
+    const valueEl = document.getElementById('parameter-value');
+    if (!valueEl) return;
+
+    const step = parseFloat(valueEl.step || '1');
+    const min = parseFloat(valueEl.min || '0');
+    const max = parseFloat(valueEl.max || '100');
+    let current = parseFloat(valueEl.value || '0');
+
+    current += delta * step;
+    current = Math.max(min, Math.min(max, current));
+
+    valueEl.value = current;
+    syncValueLabel();
 }
 
 function closeModal() {

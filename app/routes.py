@@ -1,5 +1,5 @@
-from . import db, login
-from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, current_app
+from . import db, login as login_manager
+from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
 from flask_login import current_user, login_user, logout_user, login_required
 from .models import User, Parameter, Scenario, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
 from .forms import LoginForm, CultureForm
@@ -8,20 +8,18 @@ from collections import defaultdict
 import logging
 from functools import wraps
 
-# === Настройка WiFi-клиента: импорты ===
+# === WiFi-адаптер: импорты и определения===
 import os
 import shutil
 import tempfile
-import subprocess
 import re
 import subprocess
-
 IW_BIN = "/usr/sbin/iw"
 WPA_CLI_BIN = "/sbin/wpa_cli"
 IP_BIN = "/sbin/ip"
 
 # === КАМЕРА: импорты ===
-import cv2, glob, os
+import cv2, glob
 import datetime as dt
 from flask import send_file
 from werkzeug.exceptions import abort
@@ -35,6 +33,7 @@ load_dotenv()  # чтобы os.getenv видел значения из .env пр
 
 from pathlib import Path
 
+
 # === КАМЕРА: импорты ===
 
 bp = Blueprint('main', __name__)
@@ -42,7 +41,6 @@ bp = Blueprint('main', __name__)
 # Настройка логгера
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 
 # Декоратор для проверки прав администратора
 def admin_required(f):
@@ -151,20 +149,19 @@ def get_wifi_client_status() -> str:
         if status.get("wpa_state") == "COMPLETED":
             ip_addr = status.get("ip_address")
             if ip_addr:
-                return f"Подключен {ip_addr}"
-            return "Сеть подключена"
+                return f"Подключен, получен IP {ip_addr}"
+            return "Подключен, но IP-адрес не получен. Перезагрузите устройство"
 
         return "Сеть не подключена"
 
     except Exception as e:
         print("get_wifi_client_status EXCEPTION:", repr(e))
         return "Адаптер не обнаружен"
-
+        
 # === КАМЕРА: вспомогалки ===
 def _abs(p: str) -> str:
     # не требует существования пути
     return str(Path(p).expanduser().resolve(strict=False))
-
 
 def _cam_save_dir(cam: Optional[int] = None):
     if cam:
@@ -175,10 +172,8 @@ def _cam_save_dir(cam: Optional[int] = None):
         return _abs(os.path.join(base, f"cam{cam}"))
     return _abs(os.getenv("CAMERA_SAVE_DIR", "./camera_archive"))
 
-
 def _cam_tmp_dir():
     return _abs(os.getenv("CAMERA_TIMELAPSE_TMP", "./tmp"))
-
 
 def _cam_rtsp(cam: Optional[int] = None) -> str:
     if cam:
@@ -187,26 +182,20 @@ def _cam_rtsp(cam: Optional[int] = None) -> str:
             return env
     return os.getenv("CAMERA_RTSP_URL", "rtsp://admin:admin123@192.168.202.229:554/live/ch00_0")
 
-
 def _cam_max_w():
     return int(os.getenv("CAMERA_MAX_PREVIEW_W", "1280"))
-
 
 def _cam_jpeg_q():
     return int(os.getenv("CAMERA_JPEG_QUALITY", "90"))
 
-
 def _cam_codec():
     return os.getenv("CAMERA_TIMELAPSE_CODEC", "mp4v")
-
 
 def _now():
     return dt.datetime.now()
 
-
 def _ts_to_name(ts: dt.datetime) -> str:
     return ts.strftime("%Y%m%d_%H%M%S") + f"{int(ts.microsecond/1000):03d}.jpg"
-
 
 def _name_to_ts(fname: str):
     base = os.path.basename(fname)
@@ -221,11 +210,9 @@ def _name_to_ts(fname: str):
     except Exception:
         return None
 
-
 def _latest_image_path(cam: Optional[int] = None):
     files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     return files[-1] if files else None
-
 
 def _find_nearest_image(target: dt.datetime, cam: Optional[int] = None):
     files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
@@ -239,7 +226,6 @@ def _find_nearest_image(target: dt.datetime, cam: Optional[int] = None):
             best, best_delta = p, delta
     return best
 
-
 def _list_between(start_dt: dt.datetime, end_dt: dt.datetime, cam: Optional[int] = None):
     files = sorted(glob.glob(os.path.join(_cam_save_dir(cam), "*.jpg")))
     res = []
@@ -248,7 +234,6 @@ def _list_between(start_dt: dt.datetime, end_dt: dt.datetime, cam: Optional[int]
         if ts and start_dt <= ts <= end_dt:
             res.append(p)
     return res
-
 
 def _parse_dt_local(s: str) -> dt.datetime:
     if "T" not in s:
@@ -264,7 +249,6 @@ def _parse_dt_local(s: str) -> dt.datetime:
     except Exception:
         return dt.datetime.fromisoformat(s)
 
-
 def _save_frame(frame, cam: Optional[int] = None) -> str:
     out_dir = Path(_cam_save_dir(cam))
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -272,7 +256,7 @@ def _save_frame(frame, cam: Optional[int] = None) -> str:
     ts = _now()
     fname = _ts_to_name(ts)
     path = out_dir / fname
-    tmp = out_dir / (fname + ".part")
+    tmp  = out_dir / (fname + ".part")
 
     # ресайз
     h, w = frame.shape[:2]
@@ -292,8 +276,7 @@ def _save_frame(frame, cam: Optional[int] = None) -> str:
         os.replace(tmp, path)
     finally:
         if tmp.exists():
-            try:
-                tmp.unlink()
+            try: tmp.unlink()
             except Exception:
                 pass
 
@@ -302,12 +285,10 @@ def _save_frame(frame, cam: Optional[int] = None) -> str:
 
     return str(path)
 
-
 def _np_from_file(path: str):
     with open(path, "rb") as f:
         data = f.read()
     return np.frombuffer(data, dtype=np.uint8)
-
 
 def _build_timelapse(files, fps: int, out_path: str) -> bool:
     if not files:
@@ -332,8 +313,6 @@ def _build_timelapse(files, fps: int, out_path: str) -> bool:
     finally:
         vw.release()
     return True
-# === КАМЕРА: вспомогалки ===
-
 
 def get_parameter_value_by_name(name, default=''):
     p = Parameter.query.filter_by(controlled_parameter_name=name).first()
@@ -344,39 +323,183 @@ def get_parameter_value_by_name(name, default=''):
     if isinstance(value, bytes):
         value = value.decode('utf-8')
     return value
+    
+def _ui_group_icon(group_name: str) -> str:
+    icons = {
+        "Управление общее": "🧩",
+        "Управление поливом": "💧",
+        "Управление освещением": "💡",
+    }
+    return icons.get(group_name, "⚙️")
 
+def _ui_item_icon(param_name: str, register_type: str) -> str:
+    name = (param_name or "").lower()
+
+    # Сначала иконки по смыслу имени
+    if "насос" in name:
+        return "🔄"
+    if "перемеш" in name:
+        return "🌀"
+    if "режим" in name:
+        return "🛠️"
+    if "свет" in name:
+        return "💡"
+    if "яркость" in name:
+        return "🌗"
+    if "канал" in name:
+        return "🔌"
+    if "полка" in name or "стеллаж" in name:
+        return "🚿"
+    if "охлаждение" in name:
+        return "❄️"
+    if "увлажн" in name:
+        return "💨"
+
+    # Потом fallback по типу регистра
+    if str(register_type) == "1":
+        return "⏻"
+    if str(register_type) == "3":
+        return "🔢"
+
+    return "⚙️"
+
+def build_control_groups(params):
+    allowed_groups = [
+        "Управление общее",
+        "Управление поливом",
+        "Управление освещением",
+    ]
+
+    groups = {
+        group_name: {
+            "title": group_name,
+            "icon": _ui_group_icon(group_name),
+            "items": []
+        }
+        for group_name in allowed_groups
+    }
+
+    for p in params:
+        register_name = (p.register_name or "").strip()
+        operation_type = (p.operation_type or "").strip()
+        register_type = str(p.register_type or "").strip()
+        param_name = (p.controlled_parameter_name or "").strip()
+
+        if not param_name:
+            continue
+
+        # manual не выводим сюда
+        if register_name == "manual":
+            continue
+
+        # только нужные разделы
+        if register_name not in groups:
+            continue
+
+        # только чтение/запись
+        normalized_op = operation_type.lower().replace(" ", "")
+        if normalized_op != "чтение/запись":
+            continue
+
+        # только кнопка или поле значения
+        if register_type not in ("1", "3"):
+            continue
+
+        limits = _parse_acceptable_values(p.acceptable_values)
+
+        groups[register_name]["items"].append({
+            "name": param_name,
+            "value": p.value or "0",
+            "register_type": register_type,
+            "icon": _ui_item_icon(param_name, register_type),
+            "value_class": _ui_value_class(param_name),
+            "min_value": limits["min"],
+            "max_value": limits["max"],
+            "step_value": limits["step"],
+        })
+
+    # сортировка по имени
+    for group in groups.values():
+        group["items"].sort(key=lambda x: x["name"].lower())
+
+    return groups
+
+def _parse_acceptable_values(raw: str):
+    s = (raw or "").strip()
+
+    # по умолчанию
+    result = {"min": 0, "max": 100, "step": 1}
+
+    if not s:
+        return result
+
+    # например: "1 - 100", "10 - 6000", "0 или 1"
+    nums = re.findall(r'-?\d+(?:[.,]\d+)?', s)
+    nums = [float(x.replace(',', '.')) for x in nums]
+
+    if len(nums) >= 2:
+        result["min"] = nums[0]
+        result["max"] = nums[1]
+    elif len(nums) == 1:
+        result["min"] = 0
+        result["max"] = nums[0]
+
+    # если есть дроби — шаг 0.1, иначе 1
+    if any(float(x) != int(float(x)) for x in nums):
+        result["step"] = 0.1
+
+    return result
+
+def _ui_value_class(param_name: str) -> str:
+    name = (param_name or "").lower()
+
+    if "синий" in name or "blue" in name:
+        return "light-level-blue"
+    if "красный" in name or "red" in name:
+        return "light-level-red"
+    if "white" in name or "белый" in name:
+        return "light-level-white"
+    if "fr" in name or "дальний красный" in name:
+        return "light-level-fr"
+
+    return ""
 
 @bp.route('/')
 @bp.route('/index')
 @login_required
 def index():
     parameters = Parameter.query.all()
-    # Приводим ключи и значения к строковому типу
+
     parameters_dict = {}
     for param in parameters:
         key = param.controlled_parameter_name
         if isinstance(key, bytes):
             key = key.decode('utf-8')
+
         value = param.value
         if isinstance(value, bytes):
             value = value.decode('utf-8')
+
         parameters_dict[key] = value
+
+    control_groups = build_control_groups(parameters)
 
     logs_info = Log.query.filter(Log.level == 'INFO').order_by(Log.timestamp.desc()).all()
     logs_errors = Log.query.filter(Log.level == 'ERROR').order_by(Log.timestamp.desc()).all()
     records = DensityRecord.query.order_by(DensityRecord.timestamp.desc()).all()
     time_adjustment = timedelta(hours=3)
+
     return render_template(
         'main.html',
         parameters=parameters,
         parameters_dict=parameters_dict,
+        control_groups=control_groups,
         logs_info=logs_info,
         logs_errors=logs_errors,
         records=records,
         timedelta=time_adjustment,
         title='Главная'
     )
-
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -392,26 +515,21 @@ def login():
         return redirect(url_for('main.index'))
     return render_template('login.html', title='Sign In', form=form)
 
-
 @bp.route('/logout')
 def logout():
     logout_user()
     return redirect(url_for('main.login'))
-    return redirect(url_for('main.login'))
-
+#    return redirect(url_for('main.login'))
 
 @bp.route('/scenarios')
 @login_required
 def scenarios():
     irrigation_scenarios = Scenario.query.filter_by(type='Полив').order_by(Scenario.time).all()
     light_scenarios = Scenario.query.filter_by(type='Свет').order_by(Scenario.time).all()
-    return render_template(
-        'scenarios.html',
-        irrigation_scenarios=irrigation_scenarios,
-        light_scenarios=light_scenarios,
-        title='Сценарии'
-    )
-
+    return render_template('scenarios.html',
+                           irrigation_scenarios=irrigation_scenarios,
+                           light_scenarios=light_scenarios,
+                           title='Сценарии')
 
 @bp.route('/scenario_parameters')
 @login_required
@@ -437,6 +555,7 @@ def scenario_parameters():
         if belong in groups:
             groups[belong].append(name)
 
+    # Отдадим фронту ровно то, что ему нужно
     return jsonify({
         'poliv': groups['Полив'],
         'svet': groups['Свет'],
@@ -461,7 +580,6 @@ def add_scenario():
     db.session.commit()
     return jsonify(success=True)
 
-
 @bp.route('/delete_scenario', methods=['POST'])
 @login_required
 def delete_scenario():
@@ -472,7 +590,6 @@ def delete_scenario():
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False), 400
-
 
 @bp.route('/get_parameters')
 @login_required
@@ -491,7 +608,6 @@ def get_parameters():
         parameters_dict['дата'] = parameters[0].value_date.strftime('%d.%m.%Y %H:%M:%S')
     return jsonify(parameters_dict)
 
-
 @bp.route('/toggle_parameter', methods=['POST'])
 @login_required
 def toggle_parameter():
@@ -503,7 +619,6 @@ def toggle_parameter():
         parameter.value_date = datetime.now()
         db.session.commit()
     return jsonify({'status': 'success'})
-
 
 @bp.route('/set_parameter_value', methods=['POST'])
 @login_required
@@ -518,14 +633,12 @@ def set_parameter_value():
         return jsonify(success=True)
     return jsonify(success=False), 400
 
-
 @bp.route('/cultures')
 @login_required
 def cultures():
     cultures = Culture.query.all()
     form = CultureForm()
     return render_template('cultures.html', cultures=cultures, form=form, title='Справочник культур')
-
 
 @bp.route('/save_culture', methods=['POST'])
 @login_required
@@ -579,7 +692,6 @@ def save_culture():
         flash('Ошибка при сохранении культуры. Пожалуйста, проверьте введенные данные.', 'error')
     return redirect(url_for('main.cultures'))
 
-
 @bp.route('/get_culture/<int:culture_id>')
 @login_required
 def get_culture(culture_id):
@@ -605,7 +717,6 @@ def get_culture(culture_id):
         })
     return jsonify({'error': 'Культура не найдена'}), 404
 
-
 @bp.route('/delete_culture/<int:culture_id>', methods=['POST'])
 @login_required
 def delete_culture(culture_id):
@@ -616,17 +727,14 @@ def delete_culture(culture_id):
         return jsonify({'success': True})
     return jsonify({'error': 'Культура не найдена'}), 404
 
-
 @bp.route('/mixing_parameters')
 @login_required
 def mixing_parameters():
     mixing_params = MixingParameter.query.first()
 
     calibration_params = {
-        'ph_calibration_temperature': get_parameter_value_by_name('ph_calibration_temperature', ''),
         'ph_buffer_1': get_parameter_value_by_name('ph_buffer_1', ''),
         'ph_buffer_2': get_parameter_value_by_name('ph_buffer_2', ''),
-        'ph_buffer_3': get_parameter_value_by_name('ph_buffer_3', ''),
         'ph_calibration_status': get_parameter_value_by_name('PH Calibration Status', 'Не выполнялась'),
         'ph_calibration_updated': get_parameter_value_by_name('PH Calibration Updated', '—'),
 
@@ -637,15 +745,18 @@ def mixing_parameters():
         'ec_calibration_updated': get_parameter_value_by_name('EC Calibration Updated', '—'),
     }
 
-    wifi_conf = read_wifi_conf("/etc/smart-wifi/wifi.conf")
+    wifi_client = None
+    conf_path = "/etc/smart-wifi/wifi.conf"
 
-    wifi_client = {
-        "status": get_wifi_client_status(),
-        "sta_enabled": wifi_conf.get("STA_ENABLED", "0") == "1",
-        "sta_ssid": wifi_conf.get("STA_SSID", ""),
-        "sta_psk": wifi_conf.get("STA_PSK", ""),
-        "sta_hidden": wifi_conf.get("STA_HIDDEN", "0") == "1",
-    }
+    if os.path.exists(conf_path):
+        wifi_conf = read_wifi_conf(conf_path)
+        wifi_client = {
+            "status": get_wifi_client_status(),
+            "sta_enabled": wifi_conf.get("STA_ENABLED", "0") == "1",
+            "sta_ssid": wifi_conf.get("STA_SSID", ""),
+            "sta_psk": wifi_conf.get("STA_PSK", ""),
+            "sta_hidden": wifi_conf.get("STA_HIDDEN", "0") == "1",
+        }
 
     return render_template(
         'mixing_parameters.html',
@@ -654,7 +765,6 @@ def mixing_parameters():
         wifi_client=wifi_client,
         title='Растворный узел'
     )
-
 
 @bp.route('/update_mixing_parameter', methods=['POST'])
 @login_required
@@ -684,8 +794,8 @@ def update_mixing_parameter():
         db.session.rollback()
         logger.error("Ошибка обновления mixing_parameter: %s", e)
         return jsonify({'error': str(e)}), 500
-
-
+        
+# Функционал калибровки датчиков PH и EC из веб-интерфейса - запись параметров буферных растворов 
 @bp.route('/update_calibration_parameter', methods=['POST'])
 @login_required
 def update_calibration_parameter():
@@ -759,7 +869,7 @@ def update_calibration_parameter():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
+# Функционал калибровки датчиков PH и EC из веб-интерфейса - кнопка запуска калибровки
 @bp.route('/start_sensor_calibration', methods=['POST'])
 @login_required
 def start_sensor_calibration():
@@ -805,8 +915,7 @@ def start_sensor_calibration():
     except Exception as e:
         db.session.rollback()
         logger.error("Ошибка start_sensor_calibration: %s", e)
-        return jsonify({'error': str(e)}), 500
-
+        return jsonify({'error': str(e)}), 500 
 
 def get_tray_status(tray, date):
     if not tray or not tray.culture_id or not tray.sprouting_date:
@@ -849,7 +958,6 @@ def get_tray_status(tray, date):
         status = 'ошибка'
         background_image = url_for('static', filename='images/error.png')
     return {'status': status, 'backgroundImage': background_image}
-
 
 @bp.route('/plantings')
 @login_required
@@ -895,16 +1003,13 @@ def plantings():
             zone['shelves'].append(shelf)
             line['zones'].append(zone)
         lines.append(line)
-    return render_template(
-        'plantings.html',
-        lines=lines,
-        cultures=cultures,
-        default_date=current_date.strftime('%Y-%m-%d'),
-        free_trays=free_trays,
-        percent_occupied=percent_occupied,
-        ready_cultures=ready_cultures
-    )
-
+    return render_template('plantings.html',
+                           lines=lines,
+                           cultures=cultures,
+                           default_date=current_date.strftime('%Y-%m-%d'),
+                           free_trays=free_trays,
+                           percent_occupied=percent_occupied,
+                           ready_cultures=ready_cultures)
 
 @bp.route('/get_tray_status')
 @login_required
@@ -921,7 +1026,6 @@ def get_tray_status_route():
             'backgroundImage': tray_status_info['backgroundImage']
         }
     return jsonify(tray_statuses)
-
 
 @bp.route('/planting_action', methods=['POST'])
 @login_required
@@ -954,7 +1058,6 @@ def planting_action():
     db.session.commit()
     return jsonify(success=True)
 
-
 @bp.route('/collect_trays', methods=['POST'])
 @login_required
 def collect_trays():
@@ -975,7 +1078,6 @@ def collect_trays():
     db.session.commit()
     return jsonify(success=True)
 
-
 @bp.route('/harvest_action', methods=['POST'])
 @login_required
 def harvest_action():
@@ -995,7 +1097,6 @@ def harvest_action():
     db.session.commit()
     return jsonify(success=True)
 
-
 @bp.route('/get_tray/<string:tray_name>')
 @login_required
 def get_tray(tray_name):
@@ -1011,7 +1112,6 @@ def get_tray(tray_name):
             'growth_stage': tray.growth_stage
         })
     return jsonify({'error': 'Лоток не найден'}), 404
-
 
 @bp.route('/update_tray', methods=['POST'])
 @login_required
@@ -1034,7 +1134,6 @@ def update_tray():
     logger.error("Лоток %s не найден", tray_name)
     return jsonify({'error': 'Лоток не найден'}), 404
 
-
 @bp.route('/check_trays_not_empty', methods=['POST'])
 @login_required
 def check_trays_not_empty():
@@ -1050,7 +1149,6 @@ def check_trays_not_empty():
         else:
             logger.info("Лоток %s не пустой.", tray_name)
     return jsonify({'all_not_empty': all_not_empty})
-
 
 @bp.route('/check_trays_empty', methods=['POST'])
 @login_required
@@ -1068,7 +1166,6 @@ def check_trays_empty():
             logger.info("Лоток %s пустой или не существует.", tray_name)
     return jsonify({'all_empty': all_empty})
 
-
 @bp.route('/check_tray_not_empty', methods=['POST'])
 @login_required
 def check_tray_not_empty():
@@ -1078,7 +1175,6 @@ def check_tray_not_empty():
     not_empty = bool(tray and tray.culture_id)
     logger.info("Лоток %s %s.", tray_name, "не пустой" if not_empty else "пустой или не существует")
     return jsonify({'not_empty': not_empty})
-
 
 @bp.route('/get_analysis')
 @login_required
@@ -1110,7 +1206,6 @@ def get_analysis():
     }
     return jsonify(analysis_data)
 
-
 @bp.route('/control')
 @login_required
 def control():
@@ -1125,8 +1220,7 @@ def control():
                         {
                             'number': 1,
                             'trays': [
-                                next((t for t in trays if t.shelf == f'Лоток-{i}-{j}'),
-                                     Tray(shelf=f'Лоток-{i}-{j}', action='', plant_type='', growth_days=0))
+                                next((t for t in trays if t.shelf == f'Лоток-{i}-{j}'), Tray(shelf=f'Лоток-{i}-{j}', action='', plant_type='', growth_days=0))
                             ]
                         }
                     ]
@@ -1136,7 +1230,6 @@ def control():
     ]
     default_date = datetime.now().strftime('%Y-%m-%d')
     return render_template('control.html', lines=lines, default_date=default_date, title='Контроль посадки')
-
 
 # === КАМЕРА: роуты ===
 
@@ -1151,7 +1244,6 @@ def camera_latest_info():
     iso = ts.replace(microsecond=0).isoformat() if ts else _now().replace(microsecond=0).isoformat()
     return jsonify({"filename": os.path.basename(p), "iso": iso})
 
-
 @bp.route('/camera/latest.jpg')
 @login_required
 def camera_latest_jpg():
@@ -1161,7 +1253,6 @@ def camera_latest_jpg():
         abort(404, description="Нет кадров в архиве")
     return send_file(p, mimetype="image/jpeg", conditional=True)
 
-
 @bp.route('/camera/download_latest')
 @login_required
 def camera_download_latest():
@@ -1170,7 +1261,6 @@ def camera_download_latest():
     if not p:
         abort(404, description="Нет кадров")
     return send_file(p, mimetype="image/jpeg", as_attachment=True, download_name="latest.jpg", conditional=True)
-
 
 @bp.route('/camera/image_at')
 @login_required
@@ -1185,7 +1275,6 @@ def camera_image_at():
         abort(404, description="Подходящих кадров не найдено")
     return send_file(p, mimetype="image/jpeg", conditional=True)
 
-
 @bp.route('/camera/download_at')
 @login_required
 def camera_download_at():
@@ -1199,7 +1288,6 @@ def camera_download_at():
         abort(404, description="Подходящих кадров не найдено")
     name = f"frame_{dt_str.replace(':','-').replace('T','_')}.jpg"
     return send_file(p, mimetype="image/jpeg", as_attachment=True, download_name=name, conditional=True)
-
 
 @bp.route('/camera/capture_now', methods=['POST'])
 @login_required
@@ -1227,8 +1315,7 @@ def camera_capture_now():
             abort(500, description="Не удалось получить кадр")
         path = _save_frame(frame, cam)  # ваш helper сохранения в архив
     finally:
-        try:
-            cap.release()
+        try: cap.release()
         except Exception:
             pass
 
@@ -1239,7 +1326,6 @@ def camera_capture_now():
         "exists": os.path.exists(path),
         "save_dir": _cam_save_dir()
     })
-
 
 @bp.route('/camera/timelapse.mp4')
 @login_required
@@ -1272,8 +1358,25 @@ def camera_timelapse_mp4():
         abort(500, description="Не удалось собрать клип")
 
     return send_file(out_path, mimetype="video/mp4", as_attachment=dl, download_name=fname, conditional=True)
-    
-    
+
+@bp.route('/light')
+@login_required
+def light_control():
+    params = Parameter.query.all()
+
+    d = {}
+    for p in params:
+        key = p.controlled_parameter_name
+        val = p.value
+        if isinstance(key, bytes):
+            key = key.decode('utf-8')
+        if isinstance(val, bytes):
+            val = val.decode('utf-8')
+        d[key] = val
+
+    return render_template("light.html", p=d)
+
+# Функция записи параметров клиента для WIFi-адаптера    
 @bp.route('/update_wifi_client_settings', methods=['POST'])
 @login_required
 def update_wifi_client_settings():
@@ -1326,9 +1429,84 @@ def update_wifi_client_settings():
 
         shutil.move(tmp_path, conf_path)
 
-        subprocess.run(["systemctl", "restart", "smart-wifi.service"], check=False)
+        res = subprocess.run(
+            ["/bin/systemctl", "restart", "smart-wifi.service"],
+            capture_output=True,
+            text=True
+        )
 
+        if res.returncode != 0:
+            status_res = subprocess.run(
+                ["/bin/systemctl", "status", "smart-wifi.service", "--no-pager", "-l"],
+                capture_output=True,
+                text=True
+            )
+
+            message = "Настройки записаны, но сервис не удалось перезапустить."
+            if "No Wi-Fi interfaces found" in status_res.stdout:
+                message = "Настройки записаны, но Wi-Fi адаптер не подключён, поэтому сервис не перезапущен."
+
+            return jsonify({
+                "status": "warning",
+                "message": message
+            }), 200
+
+        return jsonify({
+            "status": "ok",
+            "message": "Настройки записаны и сервис Wi-Fi перезапущен."
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+# Функция для кнопки перезапуска сервиса WiFi      
+@bp.route('/restart_wifi_service', methods=['POST'])
+@login_required
+def restart_wifi_service():
+    try:
+        res = subprocess.run(
+            ["/bin/systemctl", "restart", "smart-wifi.service"],
+            capture_output=True,
+            text=True
+        )
+
+        if res.returncode != 0:
+            status_res = subprocess.run(
+                ["/bin/systemctl", "status", "smart-wifi.service", "--no-pager", "-l"],
+                capture_output=True,
+                text=True
+            )
+
+            message = "Сервис не удалось перезапустить"
+
+            if "No Wi-Fi interfaces found" in status_res.stdout:
+                message = "Wi-Fi адаптер не подключён"
+
+            return jsonify({
+                "status": "warning",
+                "message": message
+            }), 200
+
+        return jsonify({
+            "status": "ok",
+            "message": "Сервис успешно перезапущен"
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+# Функция для кнопки перезагрузки  устройства        
+@bp.route('/reboot_device', methods=['POST'])
+@login_required
+def reboot_device():
+    try:
+        subprocess.Popen(["/usr/sbin/reboot"])
         return jsonify({"status": "ok"}), 200
-
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

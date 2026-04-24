@@ -1,5 +1,7 @@
-# sync_module.py main mini
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Спец вариант: на время открытия клапанов растворного узла закрывается клапан перемешивания
+# Для мини-фермы с растворным узлом на клапанах, управляемых WB-MR6C                          
+# ─────────────────────────────────────────────────────────────────────────────
 import os
 import time
 import logging
@@ -21,25 +23,26 @@ from app.models import Parameter, Scenario, MixingParameter, Log, DensityRecord
 # ─────────────────────────────────────────────────────────────────────────────
 load_dotenv()
 
-DEBUG_MODE              = os.getenv("DEBUG_MODE", "False").lower() == "true"
-DEBUG_COM_PORT          = os.getenv("DEBUG_COM_PORT", "COM4")
-DEBUG_BAUDRATE          = int(os.getenv("DEBUG_BAUDRATE", "115200"))
-DEBUG_TIMEOUT_COM       = float(os.getenv("DEBUG_TIMEOUT_COM", "0.1"))
-DEBUG_HANDLE_ECHO       = os.getenv("DEBUG_HANDLE_ECHO", "True").lower() == "true"
+DEBUG_MODE               = os.getenv("DEBUG_MODE", "False").lower() == "true"
+DEBUG_COM_PORT           = os.getenv("DEBUG_COM_PORT", "COM4")
+DEBUG_BAUDRATE           = int(os.getenv("DEBUG_BAUDRATE", "115200"))
+DEBUG_TIMEOUT_COM        = float(os.getenv("DEBUG_TIMEOUT_COM", "0.1"))
+DEBUG_HANDLE_ECHO        = os.getenv("DEBUG_HANDLE_ECHO", "True").lower() == "true"
 
-TELEGRAM_TOKEN          = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID        = os.getenv("TELEGRAM_CHAT_ID")
+MAX_TOKEN              = os.getenv("MAX_TOKEN")
+MAX_CHAT_ID            = os.getenv("MAX_CHAT_ID")
+MAX_USER_ID            = os.getenv("MAX_USER_ID")
+MAX_BATCH_INTERVAL     = int(os.getenv("MAX_BATCH_INTERVAL", "10"))
+MAX_API_BASE           = os.getenv("MAX_API_BASE", "https://platform-api.max.ru")
+MAX_DISABLE_LINK_PREVIEW = os.getenv("MAX_DISABLE_LINK_PREVIEW", "true").lower() == "true"
 
-CRITICAL_ALERT_INTERVAL = int(os.getenv("CRITICAL_ALERT_INTERVAL", "60"))  # в минутах
+CRITICAL_ALERT_INTERVAL  = int(os.getenv("CRITICAL_ALERT_INTERVAL", "60"))  # в минутах
 OFFLINE_ALERT_THRESHOLDS = [5, 10, 30, 60]  # в минутах
 
-PH_LOW, PH_HIGH         = 5.5, 7.5
-EC_LOW, EC_HIGH         = 1.5, 2.5
+PH_LOW, PH_HIGH          = 5.5, 7.5
+EC_LOW, EC_HIGH          = 1.5, 2.5
 
-# Интервал пакетной отправки (сек)
-TELEGRAM_BATCH_INTERVAL = int(os.getenv("TELEGRAM_BATCH_INTERVAL", "10"))
-
-WATER_FLOW_THRESHOLD    = float(os.getenv("WATER_FLOW_THRESHOLD", "10"))  # л/м
+WATER_FLOW_THRESHOLD     = float(os.getenv("WATER_FLOW_THRESHOLD", "10"))  # л/м
 
 # ─────────────────────────────────────────────────────────────────────────────
 #                             Логирование & Сессия
@@ -51,7 +54,8 @@ session = db.session
 # ─────────────────────────────────────────────────────────────────────────────
 #                         Глобальные структуры
 # ─────────────────────────────────────────────────────────────────────────────
-telegram_queue = queue.Queue()
+# Очередь для сообщений в мессенджер
+notify_queue = queue.Queue()
 
 modbus_clients          = {}   # name -> minimalmodbus.Instrument
 offline_counters        = {}   # name -> {"start": datetime, "sent": set()}
@@ -78,14 +82,14 @@ mix_state = {
 # формат: (параметр1, должен_быть_включен1, параметр2, должен_быть_включен2)
 CRITICAL_LINKS = [
     ("Насос", True, "Уровень 1 минимум", False),
-    ("Подача A в бак", True, "Уровень А", False),
+    ("Подача А в бак", True, "Уровень А", False),
     ("Подача В в бак", True, "Уровень В", False),
     ("Подача кислоты в бак", True, "Уровень К", False),
 ]
 
 STIRRER_PARAM = "Перемешивание"
 FEED_RELAYS = [
-    "Подача A в бак",
+    "Подача А в бак",
     "Подача В в бак",
     "Подача кислоты в бак",
 ]
@@ -101,6 +105,7 @@ def to_str(value):
 
 def norm_op_type(value) -> str:
     return to_str(value).replace(" ", "").lower()
+
 
 def is_calibration_readonly_param(name: str) -> bool:
     """
@@ -136,31 +141,10 @@ def is_calibration_readonly_param(name: str) -> bool:
         "EC Calibration Start",
     }
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 #                          Вспомогательные функции DB
 # ─────────────────────────────────────────────────────────────────────────────
-def _manage_stirrer(pump_on: bool):
-    """
-    Если растворный узел работает (pump_on=True):
-      • когда ни одно из FEED_RELAYS не активно → включаем STIRRER_PARAM
-      • когда хотя бы одно активно     → отключаем STIRRER_PARAM
-    Если растворный узел остановлен (pump_on=False):
-      • в этом сбросе (внутри handle_feed_timers) тоже отключаем STIRRER_PARAM
-    """
-    try:
-        any_running = any(
-            float(get_parameter_value(relay) or 0) > 0
-            for relay in FEED_RELAYS
-        )
-        if pump_on:
-            new_val = "0" if any_running else "1"
-            update_parameter_value(STIRRER_PARAM, new_val)
-        else:
-            update_parameter_value(STIRRER_PARAM, "0")
-    except Exception:
-        logger.exception("Ошибка управления мешалкой")
-
-
 def monitor_water_flow(current_flow: float):
     """
     Отслеживает параметр «Расход чистой воды» (л/м):
@@ -198,18 +182,55 @@ def monitor_total_volume(current_volume: float):
     _prev_total_volume = current_volume
 
 
-def send_telegram_message(text: str):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    data = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
+def send_max_message(text: str, level: str = "INFO"):
+    if not MAX_TOKEN:
+        logger.error("MAX_TOKEN не задан")
+        return False
+
+    if not MAX_CHAT_ID and not MAX_USER_ID:
+        logger.error("Не задан ни MAX_CHAT_ID, ни MAX_USER_ID")
+        return False
+
+    url = f"{MAX_API_BASE}/messages"
+
+    params = {}
+    if MAX_CHAT_ID:
+        params["chat_id"] = MAX_CHAT_ID
+    elif MAX_USER_ID:
+        params["user_id"] = MAX_USER_ID
+
+    # 🔴 логика уведомлений
+    notify = True if level in ("ERROR", "CRITICAL") else False
+
+    headers = {
+        "Authorization": MAX_TOKEN,
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "text": text,
+        "disable_link_preview": MAX_DISABLE_LINK_PREVIEW,
+        "notify": notify,
+    }
+
     try:
-        r = requests.post(url, data=data)
-        if r.status_code != 200:
-            logger.error(f"Telegram error {r.status_code}: {r.text}")
+        r = requests.post(
+            url,
+            params=params,
+            headers=headers,
+            json=payload,
+            timeout=5,
+        )
+        if r.status_code not in (200, 201):
+            logger.error(f"MAX error {r.status_code}: {r.text}")
+            return False
+        return True
     except Exception as e:
-        logger.error(f"Telegram exception: {e}")
+        logger.error(f"MAX exception: {e}")
+        return False
 
 
-def insert_log_message(message: str, level: str = "INFO"):
+def insert_log_message(message: str, level: str="INFO"):
     """
     Записывает лог в БД и ставит в очередь для пакетной отправки.
     """
@@ -217,33 +238,93 @@ def insert_log_message(message: str, level: str = "INFO"):
         entry = Log(message=message, level=level, timestamp=datetime.now())
         session.add(entry)
         session.commit()
-
+        # Ограничиваем размер БД-логов
         total = session.query(Log).count()
         if total > 1000:
-            for old in session.query(Log).order_by(Log.timestamp).limit(total - 1000):
+            for old in session.query(Log).order_by(Log.timestamp).limit(total-1000):
                 session.delete(old)
             session.commit()
+        notify_queue.put((level, message))
 
-        telegram_queue.put((level, message))
     except Exception as e:
         logger.error(f"Ошибка логирования: {e}")
         session.rollback()
 
 
-def get_parameter_value(name: str) -> str:
+def get_parameter(name: str) -> Parameter:
     p = session.query(Parameter).filter_by(controlled_parameter_name=name).first()
     if not p:
         raise ValueError(f"Параметр '{name}' не найден")
+    return p
+
+
+def get_parameter_value(name: str) -> str:
+    p = get_parameter(name)
     return p.value
 
 
 def update_parameter_value(name: str, value: str):
-    p = session.query(Parameter).filter_by(controlled_parameter_name=name).first()
-    if not p:
-        raise ValueError(f"Параметр '{name}' не найден")
+    p = get_parameter(name)
     p.value = value
     p.value_date = datetime.now()
     session.commit()
+    
+def update_text_parameter(name: str, value: str):
+    p = session.query(Parameter).filter_by(controlled_parameter_name=name).first()
+    if not p:
+        logger.warning(f"Текстовый параметр '{name}' не найден")
+        return
+
+    if str(p.value or "") != value:
+        p.value = value
+        p.value_date = datetime.now()
+        session.commit()
+
+
+def calibration_status_from_bits(sensor_name: str, err: int, stage1: int, stay: int, stage2: int) -> str:
+    if err:
+        return f"Калибровка {sensor_name}: ошибка"
+
+    if stage1:
+        return f"Калибровка {sensor_name}: стадия 1"
+
+    if stay:
+        return f"Калибровка {sensor_name}: ожидание смены жидкости"
+
+    if stage2:
+        return f"Калибровка {sensor_name}: стадия 2"
+
+    return f"Калибровка {sensor_name} не выполняется"
+
+
+def read_calibration_status_direct(prefix: str, sensor_name: str):
+    """
+    Читает DI[0..3] напрямую из датчика:
+      DI0 = ошибка калибровки
+      DI1 = стадия 1
+      DI2 = ожидание смены жидкости
+      DI3 = стадия 2
+
+    За опорный Parameter берём *_CALC_SAVE, потому что он точно указывает
+    на нужный датчик, COM-порт, адрес и скорость.
+    """
+    base = get_parameter(f"{prefix}_CALC_SAVE")
+    dev_name = f"{base.device_type}_addr{base.network_address}"
+
+    if dev_name not in modbus_clients:
+        modbus_clients[dev_name] = setup_modbus_client(base)
+
+    inst = modbus_clients[dev_name]
+
+    bits = inst.read_bits(0, 4, functioncode=2)
+
+    err = int(bits[0])
+    stage1 = int(bits[1])
+    stay = int(bits[2])
+    stage2 = int(bits[3])
+
+    status = calibration_status_from_bits(sensor_name, err, stage1, stay, stage2)
+    update_text_parameter(f"{prefix} Calibration Status", status)
 
 
 def get_mixing_parameters() -> MixingParameter:
@@ -286,18 +367,18 @@ def format_value(param: Parameter, raw_val: str) -> str:
         return str(raw_val)
 
 
-def _telegram_dispatcher():
+def _max_dispatcher():
     """
-    Каждые TELEGRAM_BATCH_INTERVAL секунд забираем всю очередь
-    и отсылаем единым запросом.
+    Каждые MAX_BATCH_INTERVAL секунд забираем всю очередь
+    и отсылаем одним сообщением в MAX.
     """
     while True:
-        _time.sleep(TELEGRAM_BATCH_INTERVAL)
+        _time.sleep(MAX_BATCH_INTERVAL)
 
         batch = []
         while True:
             try:
-                level, msg = telegram_queue.get_nowait()
+                level, msg = notify_queue.get_nowait()
                 batch.append((level, msg))
             except queue.Empty:
                 break
@@ -305,21 +386,22 @@ def _telegram_dispatcher():
         if not batch:
             continue
 
+        levels = {lvl for lvl, _ in batch}
+
+        # если хоть одна ошибка — считаем ERROR
+        if "ERROR" in levels:
+            level = "ERROR"
+        elif "WARNING" in levels:
+            level = "WARNING"
+        else:
+            level = "INFO"
+
         text = "\n".join(f"[{lvl}] {m}" for lvl, m in batch)
-        try:
-            resp = requests.post(
-                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                data={
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "text": text,
-                    "parse_mode": "HTML"
-                },
-                timeout=5
-            )
-            if resp.status_code != 200:
-                logger.error(f"Telegram batch error {resp.status_code}: {resp.text}")
-        except Exception as e:
-            logger.error(f"Telegram batch exception: {e}")
+
+        ok = send_max_message(text, level=level)
+
+        if not ok:
+            logger.error("Не удалось отправить пакет сообщений в MAX")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -440,6 +522,49 @@ def write_parameter_value(param: Parameter, value: float) -> bool:
         logger.error(f"Modbus write error {param.controlled_parameter_name}: {e}")
         update_offline_counter(name)
         return False
+
+
+def set_parameter_and_sync(param: Parameter, value: float) -> bool:
+    """
+    Пишем значение сразу в устройство и синхронно обновляем БД/кеш,
+    чтобы обычный poll_parameters не воспринял это как конфликт.
+    """
+    ok = write_parameter_value(param, value)
+    if not ok:
+        return False
+
+    param.value = str(value)
+    param.value_date = datetime.now()
+    session.commit()
+
+    previous_device_values[param.id] = float(value)
+    previous_db_values[param.id] = float(value)
+    return True
+
+
+def _manage_stirrer_direct():
+    """
+    Если открыт хотя бы один дозирующий клапан -> Перемешивание = 0
+    Если все дозирующие клапаны закрыты       -> Перемешивание = 1
+
+    Управление идет напрямую в устройство, без косвенной логики через обычный sync.
+    """
+    try:
+        stirrer = get_parameter(STIRRER_PARAM)
+
+        any_running = any(
+            float(get_parameter_value(relay) or 0) > 0
+            for relay in FEED_RELAYS
+        )
+
+        new_val = 0.0 if any_running else 1.0
+        cur_val = float(stirrer.value or 0)
+
+        if cur_val != new_val:
+            set_parameter_and_sync(stirrer, new_val)
+
+    except Exception:
+        logger.exception("Ошибка прямого управления перемешиванием")
 
 
 def group_parameters(params):
@@ -574,6 +699,8 @@ def handle_feed_timers(params_dict: dict):
     """
     Управление таймерами подачи и реле по фазам:
       idle → stabilizing → regulating → countdown → post_stabilization → regulating → …
+    На время работы любого из клапанов A / В / кислоты клапан перемешивания закрывается.
+    После закрытия последнего дозирующего клапана перемешивание открывается обратно.
     """
     now = datetime.now()
     mp = get_mixing_parameters()
@@ -699,9 +826,17 @@ def handle_feed_timers(params_dict: dict):
         raw = get_parameter_value(timer_name) or "0"
         rem = int(float(raw))
 
+        relay_param = get_parameter(relay_name)
+        stirrer_param = get_parameter(STIRRER_PARAM)
+
         if rem > 0 and timer_name not in feed_started_flags:
-            logger.info(f"[feed] Запуск {relay_name}, остаток {rem * 0.1:.1f}s")
-            update_parameter_value(relay_name, "1")
+            logger.info(f"[feed] Подготовка к запуску {relay_name}, остаток {rem * 0.1:.1f}s")
+
+            # 1. сначала закрываем перемешивание
+            set_parameter_and_sync(stirrer_param, 0)
+
+            # 2. потом открываем нужный клапан
+            set_parameter_and_sync(relay_param, 1)
             feed_started_flags.add(timer_name)
 
         if rem > 0:
@@ -712,13 +847,18 @@ def handle_feed_timers(params_dict: dict):
 
         if new == 0 and timer_name in feed_started_flags:
             logger.info(f"[feed] Окончание {relay_name}")
-            update_parameter_value(relay_name, "0")
+
+            # 1. закрываем дозирующий клапан
+            set_parameter_and_sync(relay_param, 0)
             feed_started_flags.remove(timer_name)
+
+            # 2. если больше нет активных подач — снова открываем перемешивание
+            _manage_stirrer_direct()
 
         return new
 
     sequence = [
-        ("A", "expected_ec", insert_density_record, "Время подачи A в бак", "Подача A в бак"),
+        ("A", "expected_ec", insert_density_record, "Время подачи А в бак", "Подача А в бак"),
         ("В", "expected_ec", insert_density_record, "Время подачи В в бак", "Подача В в бак"),
         ("кислоты", "expected_ph", insert_buffer_capacity_record, "Время подачи кислоты в бак", "Подача кислоты в бак"),
     ]
@@ -726,6 +866,8 @@ def handle_feed_timers(params_dict: dict):
     if mode == "вместе":
         for args in sequence:
             process_pump(*args)
+
+        _manage_stirrer_direct()
 
         all_zero = all(
             int(float(get_parameter_value(tn) or "0")) == 0
@@ -743,6 +885,8 @@ def handle_feed_timers(params_dict: dict):
             if process_pump(*args) > 0:
                 any_active = True
                 break
+
+        _manage_stirrer_direct()
 
         if phase == "countdown" and not any_active:
             mix_state["phase"] = "post_stabilization"
@@ -911,7 +1055,7 @@ def poll_parameters():
             prev_db_f = previous_db_values.get(p.id)
             op_type = norm_op_type(p.operation_type)
             param_name = to_str(p.controlled_parameter_name)
-            
+
             # Калибровочные параметры всегда только читаем из датчика.
             # Их запись в датчик выполняется только вручную через web endpoint.
             if is_calibration_readonly_param(param_name):
@@ -920,7 +1064,7 @@ def poll_parameters():
                 previous_device_values[p.id] = dev_raw_f
                 previous_db_values[p.id] = dev_raw_f
                 continue
-            
+
             if first_run:
                 if (
                     op_type == "чтение/запись"
@@ -954,8 +1098,6 @@ def poll_parameters():
                 previous_db_values[p.id] = dev_raw_f
                 continue
 
-            
-                
             # WEB → Device
             if db_raw_f != prev_db_f and dev_raw_f == prev_dev_f:
                 ok = write_parameter_value(p, db_raw_f)
@@ -970,8 +1112,6 @@ def poll_parameters():
 
             # Device → DB
             elif dev_raw_f != prev_dev_f and db_raw_f == prev_db_f:
-                
-
                 p.value = str(dev_raw_f)
                 p.value_date = now
                 session.commit()
@@ -1019,6 +1159,22 @@ def poll_parameters():
 
     # Функционал калибровки датчиков
     handle_calibration(params_dict)
+    
+    # Чтение статуса калибровки из DI-битов датчиков
+    try:
+        read_calibration_status_direct("PH", "pH")
+    except Exception as e:
+        logger.error(f"Ошибка чтения статуса калибровки pH: {e}")
+        update_text_parameter("PH Calibration Status", "Калибровка pH: ошибка чтения статуса")
+
+    try:
+        read_calibration_status_direct("EC", "EC")
+    except Exception as e:
+        logger.error(f"Ошибка чтения статуса калибровки EC: {e}")
+        update_text_parameter("EC Calibration Status", "Калибровка EC: ошибка чтения статуса")
+
+
+
 
     # Управление подачей
     handle_feed_timers(params_dict)
@@ -1029,12 +1185,11 @@ def poll_parameters():
 # ─────────────────────────────────────────────────────────────────────────────
 #                             Запуск сервиса
 # ─────────────────────────────────────────────────────────────────────────────
-_dispatcher_thread = threading.Thread(target=_telegram_dispatcher, daemon=True)
-_dispatcher_thread.start()
-
 
 def run_sync():
     with app.app_context():
+        _dispatcher_thread = threading.Thread(target=_max_dispatcher, daemon=True)
+        _dispatcher_thread.start()
         last_act = session.query(func.max(Log.timestamp)).scalar()
         last_str = last_act.strftime("%Y-%m-%d %H:%M:%S") if last_act else "—"
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
