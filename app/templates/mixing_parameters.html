@@ -406,7 +406,233 @@
 	</div>
 </section>
 {% endif %}
-	
+
+<!-- Состояние модема -->
+{% if modem_state %}
+<section class="card">
+    <h2>Состояние модема</h2>
+
+    <table class="table--compact">
+        <tr><th>IP-адрес</th><td>{{ modem_state.ipaddr or '—' }}</td><td></td></tr>
+        <tr><th>Тип</th><td>{{ modem_state.type or '—' }}</td><td></td></tr>
+        <tr><th>IMEI</th><td>{{ modem_state.imei or '—' }}</td><td></td></tr>
+        <tr><th>ICCID</th><td>{{ modem_state.iccid or '—' }}</td><td></td></tr>
+        <tr><th>Оператор</th><td>{{ modem_state.operator or '—' }}</td><td></td></tr>
+        <tr><th>Регистрация в сети (CREG)</th><td>{{ modem_state.creg or '—' }}</td><td></td></tr>
+        <tr><th>Регистрация в сети (CEREG)</th><td>{{ modem_state.cereg or '—' }}</td><td></td></tr>
+        <tr><th>Регистрация в сети (CGREG)</th><td>{{ modem_state.cgreg or '—' }}</td><td></td></tr>
+        <tr><th>Уровень сигнала CSQ</th><td>{{ modem_state.signal or '—' }}</td><td></td></tr>
+        <tr><th>Качество сигнала</th><td>{{ modem_state.level or '—' }}</td><td></td></tr>
+        <tr><th>Корректный PIN-код</th><td>{{ modem_state.pin_ok or '—' }}</td><td></td></tr>
+        <tr><th>Тип сети</th><td>{{ modem_state.net_type or '—' }}</td><td></td></tr>
+        <tr><th>Подтип сети</th><td>{{ modem_state.submode or '—' }}</td><td></td></tr>
+        <tr><th>Диапазон</th><td>{{ modem_state.band or '—' }}</td><td></td></tr>
+        <tr><th>RSSI</th><td>{{ modem_state.rssi or '—' }}</td><td></td></tr>
+        <tr><th>RSRP</th><td>{{ modem_state.rsrp or '—' }}</td><td></td></tr>
+        <tr><th>RSRQ</th><td>{{ modem_state.rsrq or '—' }}</td><td></td></tr>
+        <tr><th>SINR</th><td>{{ modem_state.sinr or '—' }}</td><td></td></tr>
+        <tr><th>Обновлено</th><td>{{ modem_state.last_update or '—' }}</td><td></td></tr>
+    </table>
+</section>
+{% endif %}
+
+
+<!-- Настройки модема -->
+{% if modem_config %}
+<section class="card">
+    <h2>Настройки модема</h2>
+
+    <table class="table--compact">
+        <tr>
+            <th>Включить SIM 1</th>
+            <td>
+                <input type="checkbox" id="modem_enable"
+                       {% if modem_config.enable %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>APN SIM 1</th>
+            <td>
+                <input type="text" id="modem_apn_server" class="form-control"
+                       value="{{ modem_config.apn_server }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Пользователь SIM 1</th>
+            <td>
+                <input type="text" id="modem_apn_user" class="form-control"
+                       value="{{ modem_config.apn_user }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Пароль SIM 1</th>
+            <td>
+                <input type="password" id="modem_apn_password" class="form-control"
+                       value="{{ modem_config.apn_password }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>PIN SIM 1</th>
+            <td>
+                <input type="text" id="modem_pin" class="form-control"
+                       value="{{ modem_config.pin }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>APN-авторизация SIM 1</th>
+            <td>
+                <input type="checkbox" id="modem_apn_auth"
+                       {% if modem_config.apn_auth %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Включить SIM 2</th>
+            <td>
+                <input type="checkbox" id="modem_enable2"
+                       {% if modem_config.enable2 %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>APN SIM 2</th>
+            <td>
+                <input type="text" id="modem_apn_server2" class="form-control"
+                       value="{{ modem_config.apn_server2 }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Пользователь SIM 2</th>
+            <td>
+                <input type="text" id="modem_apn_user2" class="form-control"
+                       value="{{ modem_config.apn_user2 }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Пароль SIM 2</th>
+            <td>
+                <input type="password" id="modem_apn_password2" class="form-control"
+                       value="{{ modem_config.apn_password2 }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>PIN SIM 2</th>
+            <td>
+                <input type="text" id="modem_pin2" class="form-control"
+                       value="{{ modem_config.pin2 }}"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>APN-авторизация SIM 2</th>
+            <td>
+                <input type="checkbox" id="modem_apn_auth2"
+                       {% if modem_config.apn_auth2 %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Разрешить 2G</th>
+            <td>
+                <input type="checkbox" id="modem_en_2g"
+                       {% if modem_config.en_2g %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Разрешить 3G</th>
+            <td>
+                <input type="checkbox" id="modem_en_3g"
+                       {% if modem_config.en_3g %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Разрешить 4G</th>
+            <td>
+                <input type="checkbox" id="modem_en_4g"
+                       {% if modem_config.en_4g %}checked{% endif %}
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Таймаут плохой сети, мин</th>
+            <td>
+                <input type="number" id="modem_net_timeout" class="form-control"
+                       value="{{ modem_config.net_timeout }}"
+                       min="1"
+                       {% if current_user.username != 'admin' %} disabled {% endif %}>
+            </td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <th>Приоритет интернет-маршрута</th>
+            <td>
+                <select id="modem_route_priority" class="form-control"
+                        {% if current_user.username != 'admin' %} disabled {% endif %}>
+                    <option value="0" {% if modem_config.modem_route_priority == 0 %}selected{% endif %}>Ethernet</option>
+                    <option value="1" {% if modem_config.modem_route_priority == 1 %}selected{% endif %}>Модем</option>
+                </select>
+            </td>
+            <td></td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-primary"
+                onclick="saveModemSettings()"
+                {% if current_user.username != 'admin' %} disabled {% endif %}>
+            Записать настройки
+        </button>
+
+        <button class="btn btn-secondary"
+                onclick="restartModemService()"
+                {% if current_user.username != 'admin' %} disabled {% endif %}>
+            Перезапуск модема
+        </button>
+    </div>
+</section>
+{% endif %}	
+		
 <!-- Управление устройством -->
     <section class="card">
         <h2>Управление устройством</h2>
@@ -702,6 +928,80 @@ function refreshCalibrationStatuses() {
 	document.addEventListener('DOMContentLoaded', function () {
 		startCalibrationStatusPolling();
 	});
+	
+	function checkboxValue(id) {
+    const el = document.getElementById(id);
+    return el && el.checked ? 1 : 0;
+}
+
+function inputValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+function saveModemSettings() {
+    const data = {
+        enable: checkboxValue('modem_enable'),
+        pin: inputValue('modem_pin').trim(),
+        apn_user: inputValue('modem_apn_user').trim(),
+        apn_password: inputValue('modem_apn_password'),
+        apn_server: inputValue('modem_apn_server').trim(),
+        apn_auth: checkboxValue('modem_apn_auth'),
+
+        enable2: checkboxValue('modem_enable2'),
+        pin2: inputValue('modem_pin2').trim(),
+        apn_user2: inputValue('modem_apn_user2').trim(),
+        apn_password2: inputValue('modem_apn_password2'),
+        apn_server2: inputValue('modem_apn_server2').trim(),
+        apn_auth2: checkboxValue('modem_apn_auth2'),
+
+        en_2g: checkboxValue('modem_en_2g'),
+        en_3g: checkboxValue('modem_en_3g'),
+        en_4g: checkboxValue('modem_en_4g'),
+        net_timeout: parseInt(inputValue('modem_net_timeout') || '60'),
+        modem_route_priority: parseInt(inputValue('modem_route_priority') || '0')
+    };
+
+    fetch('/update_modem_settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json;charset=UTF-8'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json().then(body => ({status: r.status, body})))
+    .then(({status, body}) => {
+        if (status >= 200 && status < 300) {
+            alert(body.message || 'Настройки модема записаны.');
+        } else {
+            alert(body.message || 'Ошибка при сохранении настроек модема.');
+        }
+    })
+    .catch(() => {
+        alert('Сетевая ошибка при сохранении настроек модема.');
+    });
+}
+
+function restartModemService() {
+    if (!confirm('Перезапустить сервис модема? Связь через модем может временно пропасть.')) {
+        return;
+    }
+
+    fetch('/restart_modem_service', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json;charset=UTF-8'},
+        body: JSON.stringify({})
+    })
+    .then(r => r.json().then(body => ({status: r.status, body})))
+    .then(({status, body}) => {
+        if (status >= 200 && status < 300) {
+            alert(body.message || 'Сервис модема перезапущен.');
+        } else {
+            alert(body.message || 'Ошибка при перезапуске сервиса модема.');
+        }
+    })
+    .catch(() => {
+        alert('Сетевая ошибка при перезапуске сервиса модема.');
+    });
+}
 
 </script>
 

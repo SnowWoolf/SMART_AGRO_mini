@@ -1,5 +1,5 @@
 from . import db, login as login_manager
-from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
+from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, jsonify
 from flask_login import current_user, login_user, logout_user, login_required
 from .models import User, Parameter, Scenario, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
 from .forms import LoginForm, CultureForm
@@ -8,15 +8,20 @@ from collections import defaultdict
 import logging
 from functools import wraps
 
-# === WiFi-адаптер: импорты и определения===
+# === WiFi-адаптер и модем: импорты и определения===
 import os
 import shutil
 import tempfile
 import re
 import subprocess
+import json
 IW_BIN = "/usr/sbin/iw"
 WPA_CLI_BIN = "/sbin/wpa_cli"
 IP_BIN = "/sbin/ip"
+MODEM_CONF_PATH = "/etc/uspd/modem/uspd-modem.conf"
+MODEM_SIM_PRIO_PATH = "/etc/uspd/modem/uspd-sim-prio.conf"
+MODEM_INFO_PATH = "/run/uspd/modem/modem.info"
+
 
 # === КАМЕРА: импорты ===
 import cv2, glob
@@ -763,8 +768,10 @@ def mixing_parameters():
         mixing_params=mixing_params,
         calibration_params=calibration_params,
         wifi_client=wifi_client,
+        modem_state=read_modem_state(),
+        modem_config=read_modem_config(),
         title='Растворный узел'
-    )
+       )
 
 @bp.route('/update_mixing_parameter', methods=['POST'])
 @login_required
@@ -1500,6 +1507,58 @@ def restart_wifi_service():
             "status": "error",
             "message": str(e)
         }), 500
+        
+@bp.route('/update_modem_settings', methods=['POST'])
+@login_required
+def update_modem_settings():
+    if not current_user.is_authenticated or current_user.role != "admin":
+        return jsonify({"status": "error", "message": "Недостаточно прав"}), 403
+
+    data = request.get_json(silent=True) or {}
+
+    try:
+        write_modem_config(data)
+        return jsonify({
+            "status": "ok",
+            "message": "Настройки модема записаны. Для применения перезапустите модем."
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@bp.route('/restart_modem_service', methods=['POST'])
+@login_required
+def restart_modem_service():
+    if not current_user.is_authenticated or current_user.role != "admin":
+        return jsonify({"status": "error", "message": "Недостаточно прав"}), 403
+
+    try:
+        res = subprocess.run(
+            ["/bin/systemctl", "restart", "uspd-modem.service"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if res.returncode != 0:
+            return jsonify({
+                "status": "error",
+                "message": res.stderr or res.stdout or "Не удалось перезапустить uspd-modem"
+            }), 500
+
+        return jsonify({
+            "status": "ok",
+            "message": "Сервис модема перезапущен."
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 # Функция для кнопки перезагрузки  устройства        
 @bp.route('/reboot_device', methods=['POST'])
@@ -1510,3 +1569,149 @@ def reboot_device():
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+        
+def _yes_no(value):
+    return "Да" if str(value) in ("1", "5") else "Нет"
+
+
+def get_ppp0_ip():
+    try:
+        result = subprocess.run(
+            [IP_BIN, "-4", "addr", "show", "ppp0"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=3
+        )
+
+        # сначала вариант с peer (как у тебя)
+        match = re.search(r"inet\s+([0-9.]+)\s+peer", result.stdout)
+        if match:
+            return match.group(1)
+
+        # fallback (для обычных интерфейсов)
+        match = re.search(r"inet\s+([0-9.]+)/", result.stdout)
+        if match:
+            return match.group(1)
+
+        return ""
+
+    except Exception:
+        return ""
+
+
+def read_modem_state():
+    if not os.path.exists(MODEM_INFO_PATH):
+        return None
+
+    try:
+        with open(MODEM_INFO_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return {
+            "ipaddr": get_ppp0_ip(),
+            "last_update": data.get("last_update", ""),
+            "type": data.get("info", ""),
+            "fw": data.get("fw", ""),
+            "imei": data.get("imei", ""),
+            "iccid": data.get("iccid", ""),
+            "operator": data.get("ops", ""),
+            "creg": _yes_no(data.get("creg", "")),
+            "cereg": _yes_no(data.get("cereg", "")),
+            "cgreg": _yes_no(data.get("cgreg", "")),
+            "signal": data.get("csq", ""),
+            "level": data.get("level", ""),
+            "pin_ok": "Да" if data.get("cpin") == "READY" else "Нет",
+            "net_type": data.get("mode", ""),
+            "submode": data.get("submode", ""),
+            "band": data.get("band", ""),
+            "rssi": data.get("rssi", ""),
+            "rsrp": data.get("rsrp", ""),
+            "rsrq": data.get("rsrq", ""),
+            "sinr": data.get("sinr", "")
+        }
+    except Exception:
+        return None
+
+
+def read_modem_config():
+    if not os.path.exists(MODEM_CONF_PATH):
+        return None
+
+    config = {}
+
+    try:
+        with open(MODEM_CONF_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().rstrip(";").strip()
+
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+
+                config[key] = value
+
+        return {
+            "enable": int(config.get("enable", "0")),
+            "pin": config.get("pin", ""),
+            "apn_user": config.get("apn_user", ""),
+            "apn_password": config.get("apn_password", ""),
+            "apn_server": config.get("apn_server", ""),
+            "apn_auth": int(config.get("apn_auth", "0")),
+
+            "enable2": int(config.get("enable2", "0")),
+            "pin2": config.get("pin2", ""),
+            "apn_user2": config.get("apn_user2", ""),
+            "apn_password2": config.get("apn_password2", ""),
+            "apn_server2": config.get("apn_server2", ""),
+            "apn_auth2": int(config.get("apn_auth2", "0")),
+
+            "en_2g": int(config.get("en_2g", "1")),
+            "en_3g": int(config.get("en_3g", "1")),
+            "en_4g": int(config.get("en_4g", "1")),
+            "net_timeout": int(config.get("net_timeout", "60")),
+            "modem_route_priority": int(config.get("modem_route_priority", "0"))
+        }
+    except Exception:
+        return None
+
+
+def write_modem_config(data):
+    def b(name):
+        return 1 if data.get(name) in (1, "1", True, "true", "on") else 0
+
+    def s(name):
+        return str(data.get(name, "")).replace('"', '').replace('\n', '').replace('\r', '')
+
+    content = f'''enable={b("enable")};
+pin="{s("pin")}";
+apn_user="{s("apn_user")}";
+apn_password="{s("apn_password")}";
+apn_server="{s("apn_server")}";
+apn_auth={b("apn_auth")};
+
+enable2={b("enable2")};
+pin2="{s("pin2")}";
+apn_user2="{s("apn_user2")}";
+apn_password2="{s("apn_password2")}";
+apn_server2="{s("apn_server2")}";
+apn_auth2={b("apn_auth2")};
+
+en_2g={b("en_2g")};
+en_3g={b("en_3g")};
+en_4g={b("en_4g")};
+net_timeout={int(data.get("net_timeout", 60) or 60)};
+
+modem_route_priority={1 if str(data.get("modem_route_priority", "0")) == "1" else 0};
+'''
+
+    with open(MODEM_CONF_PATH, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+        
