@@ -1,8 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="mixing-grid">
-    
+<div class="settings-layout">
+
+    <aside class="settings-sidebar">
+        <button class="settings-menu-item active" onclick="showSettingsSection('solution', this)">
+            Растворный узел
+        </button>
+
+        <button class="settings-menu-item" onclick="showSettingsSection('service', this)">
+            Тех. обслуживание
+        </button>
+
+        <button class="settings-menu-item" onclick="showSettingsSection('network', this)">
+            Настройки сети
+        </button>
+
+        <button class="settings-menu-item" onclick="showSettingsSection('device', this)">
+            Управление устройством
+        </button>
+    </aside>
+
+    <main class="settings-content">
+	
+<!-- Раздел РАСТВОРНЫЙ УЗЕЛ -->    
+<div id="section-solution" class="settings-section active">	
     <!-- Общие параметры -->
     <section class="card">
         <h2>Общие параметры</h2>
@@ -166,7 +188,10 @@
             </tr>
         </table>
     </section>
+</div>
 
+<!-- Раздел ТЕХ.ОБСЛУЖИВАНИЕ --> 
+<div id="section-service" class="settings-section">
     <!-- Калибровка pH -->
     <section class="card">
         <h2>Калибровка pH</h2>
@@ -194,18 +219,6 @@
                     </button>
                 </td>
             </tr>
-           <!--
-            <tr>
-                <th>Статус калибровки</th>
-                <td id="ph_calibration_status">{{ calibration_params.ph_calibration_status }}</td>
-                <td></td>
-            </tr>
-            <tr>
-                <th>Обновлено</th>
-                <td id="ph_calibration_updated">{{ calibration_params.ph_calibration_updated }}</td>
-                <td></td>
-            </tr>
-			-->
         </table>
 
         <div style="margin-top: 16px;">
@@ -272,18 +285,6 @@
                     </button>
                 </td>
             </tr>
-			<!--
-            <tr>
-                <th>Статус калибровки</th>
-                <td id="ec_calibration_status">{{ calibration_params.ec_calibration_status }}</td>
-                <td></td>
-            </tr>
-            <tr>
-                <th>Обновлено</th>
-                <td id="ec_calibration_updated">{{ calibration_params.ec_calibration_updated }}</td>
-                <td></td>
-            </tr>
-			-->
         </table>
 
         <div style="margin-top: 16px;">
@@ -327,7 +328,10 @@
 
 </div>
     </section>
+</div>
 
+<!-- Раздел НАСТРОЙКА СЕТИ --> 
+<div id="section-network" class="settings-section">
 <!-- Параметры WiFi клиента -->
 <!-- Карточка будет отображаться только если существует файл /etc/smart-wifi/wifi.conf -->
 {% if wifi_client %}
@@ -632,7 +636,11 @@
     </div>
 </section>
 {% endif %}	
-		
+	
+</div>
+
+<!-- Раздел УПРАВЛЕНИЕ УСТРОЙСТВОМ --> 
+<div id="section-device" class="settings-section">	
 <!-- Управление устройством -->
     <section class="card">
         <h2>Управление устройством</h2>
@@ -645,6 +653,11 @@
             </button>
         </div>
     </section>
+</div>
+	
+	</main>
+</div>
+
 
 <!-- Модальное окно изменения значения для калибровки датчиков -->
     <div id="valueModal" class="modal">
@@ -672,6 +685,121 @@
     </div>
 
 </div>
+
+<!-- CSS -->
+<style>
+.settings-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 18px;
+    align-items: start;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #222;
+}
+
+.settings-sidebar {
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+    position: sticky;
+    top: 12px;
+}
+
+.settings-menu-item {
+    width: 100%;
+    display: block;
+    text-align: left;
+    padding: 11px 14px;
+    margin-bottom: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #222;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+}
+
+.settings-menu-item:hover {
+    background: #f3f5f8;
+}
+
+.settings-menu-item.active {
+    background: #2563eb;
+    color: #fff;
+}
+
+.settings-content {
+    min-width: 0;
+}
+
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-section .card {
+    width: 100%;
+    padding: 18px 22px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.settings-section .card h2 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.table--compact {
+    width: auto;
+    border-collapse: collapse;
+}
+
+.table--compact th {
+    font-size: 15px;
+    font-weight: 500;
+    color: #374151;
+    text-align: left;
+    padding: 8px 16px 8px 0;
+    white-space: nowrap;
+}
+
+.table--compact td {
+    font-size: 15px;
+    font-weight: 400;
+    color: #111827;
+    padding: 8px 8px;
+    vertical-align: middle;
+}
+
+.table--compact .btn,
+.card .btn {
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+@media (max-width: 900px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-sidebar {
+        position: static;
+    }
+}
+</style>
 
 <!-- Раздел для JS-функций -->
 <script>
@@ -1001,6 +1129,25 @@ function restartModemService() {
     .catch(() => {
         alert('Сетевая ошибка при перезапуске сервиса модема.');
     });
+}
+
+function showSettingsSection(sectionName, button) {
+    document.querySelectorAll('.settings-section').forEach(function (section) {
+        section.classList.remove('active');
+    });
+
+    document.querySelectorAll('.settings-menu-item').forEach(function (item) {
+        item.classList.remove('active');
+    });
+
+    const section = document.getElementById('section-' + sectionName);
+    if (section) {
+        section.classList.add('active');
+    }
+
+    if (button) {
+        button.classList.add('active');
+    }
 }
 
 </script>

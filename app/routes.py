@@ -154,7 +154,7 @@ def get_wifi_client_status() -> str:
         if status.get("wpa_state") == "COMPLETED":
             ip_addr = status.get("ip_address")
             if ip_addr:
-                return f"Подключен, получен IP {ip_addr}"
+                return f"Подключен, получен IP:  {ip_addr}"
             return "Подключен, но IP-адрес не получен. Перезагрузите устройство"
 
         return "Сеть не подключена"
@@ -770,7 +770,7 @@ def mixing_parameters():
         wifi_client=wifi_client,
         modem_state=read_modem_state(),
         modem_config=read_modem_config(),
-        title='Растворный узел'
+        title='Параметры'
        )
 
 @bp.route('/update_mixing_parameter', methods=['POST'])
