@@ -607,9 +607,22 @@
 
 <!-- Раздел УПРАВЛЕНИЕ УСТРОЙСТВОМ --> 
 <div id="section-device" class="settings-section">	
-<!-- Управление устройством -->
+<section class="card">
+    <h2>Версия ВПО</h2>
+
+    <div class="device-version-row">
+        <span>Версия ПО</span>
+        <strong>{{ firmware_versions.software }}</strong>
+    </div>
+
+    <div class="device-version-row">
+        <span>Версия БД</span>
+        <strong>{{ firmware_versions.database }}</strong>
+    </div>
+</section>
+
     <section class="card">
-        <h2>Управление устройством</h2>
+        <h2>Перезагрузка</h2>
 
         <div style="margin-top: 8px;">
             <button class="btn btn-primary"

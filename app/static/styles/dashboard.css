@@ -1188,3 +1188,28 @@ body.no-scroll{ overflow: hidden; }
     font-size: 12px;
     color: #6b7280;
 }
+
+.device-version-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.device-version-row span {
+  color: var(--muted);
+}
+
+.device-version-row strong {
+  color: #111827;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+@media (max-width: 700px) {
+  .device-version-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

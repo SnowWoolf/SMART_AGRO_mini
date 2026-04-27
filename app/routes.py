@@ -37,6 +37,7 @@ from dotenv import load_dotenv
 load_dotenv()  # чтобы os.getenv видел значения из .env при запуске через IDE/uwsgi/gunicorn
 
 from pathlib import Path
+from config import DB_NAME
 
 
 # === КАМЕРА: импорты ===
@@ -56,6 +57,29 @@ def admin_required(f):
             return redirect(url_for('main.login'))
         return f(*args, **kwargs)
     return decorated_function
+    
+VERSION_FILE_PATH = Path(__file__).resolve().parent.parent / "version"
+
+def read_firmware_versions():
+    result = {
+        "software": "Версия ПО не указана",
+        "database": DB_NAME
+    }
+
+    try:
+        if not VERSION_FILE_PATH.exists():
+            return result
+
+        with open(VERSION_FILE_PATH, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+
+        if len(lines) >= 1 and lines[0].strip():
+            result["software"] = lines[0].strip()
+
+    except Exception:
+        pass
+
+    return result
 
 # === Настройка WiFi-клиента: функции ===
 def read_wifi_conf(path="/etc/smart-wifi/wifi.conf"):
@@ -520,7 +544,12 @@ def login():
             return redirect(url_for('main.login'))
         login_user(user)
         return redirect(url_for('main.index'))
-    return render_template('login.html', title='Sign In', form=form)
+    return render_template(
+        'login.html',
+        title='Sign In',
+        form=form,
+        firmware_versions=read_firmware_versions()
+    )
 
 @bp.route('/logout')
 def logout():
@@ -1013,6 +1042,7 @@ def mixing_parameters():
         wifi_available=wifi_available,
         modem_state=read_modem_state(),
         modem_config=read_modem_config(),
+        firmware_versions=read_firmware_versions(),
         title='Параметры'
        )
 
