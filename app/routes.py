@@ -1,7 +1,7 @@
 from . import db, login as login_manager
 from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, jsonify
 from flask_login import current_user, login_user, logout_user, login_required
-from .models import User, Parameter, Scenario, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
+from .models import User, Parameter, Scenario, ScenarioCycle, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
 from .forms import LoginForm, CultureForm
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -528,6 +528,116 @@ def logout():
     return redirect(url_for('main.login'))
 #    return redirect(url_for('main.login'))
 
+# Вспомогательные функции для нового конструктора сценариев:
+def _decode_value(value):
+    if isinstance(value, bytes):
+        return value.decode('utf-8')
+    return value
+
+
+def _get_constructor_parameters():
+    params = Parameter.query.with_entities(
+        Parameter.controlled_parameter_name,
+        Parameter.scenario_belonging,
+        Parameter.acceptable_values
+    ).all()
+
+    groups = {
+        "Полив": [],
+        "Свет": [],
+        "Свет уровень": []
+    }
+
+    for name, belonging, acceptable_values in params:
+        name = (_decode_value(name) or "").strip()
+        belonging = (_decode_value(belonging) or "").strip()
+        acceptable_values = (_decode_value(acceptable_values) or "").strip()
+
+        if not name:
+            continue
+
+        if belonging in groups:
+            groups[belonging].append({
+                "name": name,
+                "acceptable_values": acceptable_values
+            })
+
+    for key in groups:
+        groups[key].sort(key=lambda x: x["name"].lower())
+
+    return groups
+
+
+def _parse_hhmm(value):
+    return datetime.strptime(value, "%H:%M").time()
+
+
+def _seconds_to_time(base_time, add_seconds):
+    base_dt = datetime.combine(datetime.today(), base_time)
+    result_dt = base_dt + timedelta(seconds=add_seconds)
+    return result_dt.time()
+
+
+def _generate_scenarios_for_cycle(cycle):
+    steps = json.loads(cycle.steps_json or "[]")
+
+    start_time = _parse_hhmm(cycle.first_time)
+    period_minutes = int(cycle.period_minutes)
+
+    if period_minutes < 0:
+        raise ValueError("Период не может быть отрицательным")
+
+    generated = []
+
+    day_start = datetime.combine(datetime.today(), datetime.min.time())
+    first_start = datetime.combine(datetime.today(), start_time)
+    day_end = day_start + timedelta(days=1)
+
+    def add_cycle_steps(cycle_start):
+        offset_sec = 0
+
+        for step_index, step in enumerate(steps):
+            delay_sec = int(step.get("delay_sec", 0) or 0)
+            offset_sec += delay_sec
+
+            event_dt = cycle_start + timedelta(seconds=offset_sec)
+
+            if event_dt >= day_end:
+                continue
+
+            generated.append(Scenario(
+                type=cycle.cycle_type,
+                time=event_dt.time().replace(microsecond=0),
+                parameter=str(step.get("parameter", "")).strip(),
+                value=str(step.get("value", "")).strip(),
+                result="",
+                last_execution=datetime.now() - timedelta(days=1),
+                cycle_id=cycle.id,
+                cycle_step_index=step_index
+            ))
+
+    if period_minutes == 0:
+        add_cycle_steps(first_start)
+        return generated
+
+    cycle_start = first_start
+
+    while cycle_start < day_end:
+        add_cycle_steps(cycle_start)
+        cycle_start += timedelta(minutes=period_minutes)
+
+    return generated
+
+
+def _regenerate_scenarios_for_cycle(cycle):
+    Scenario.query.filter_by(cycle_id=cycle.id).delete()
+
+    if cycle.enabled:
+        rows = _generate_scenarios_for_cycle(cycle)
+        for row in rows:
+            db.session.add(row)
+
+
 @bp.route('/scenarios')
 @login_required
 def scenarios():
@@ -537,6 +647,135 @@ def scenarios():
                            irrigation_scenarios=irrigation_scenarios,
                            light_scenarios=light_scenarios,
                            title='Сценарии')
+                           
+@bp.route('/scenario_constructor')
+@login_required
+def scenario_constructor():
+    return render_template(
+        'scenario_constructor.html',
+        title='Конструктор сценариев'
+    )
+    
+@bp.route('/scenario_constructor/data')
+@login_required
+def scenario_constructor_data():
+    cycles = ScenarioCycle.query.order_by(ScenarioCycle.name).all()
+    parameter_groups = _get_constructor_parameters()
+
+    return jsonify({
+        "cycles": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "cycle_type": c.cycle_type,
+                "first_time": c.first_time,
+                "period_minutes": c.period_minutes,
+                "enabled": c.enabled,
+                "steps": json.loads(c.steps_json or "[]")
+            }
+            for c in cycles
+        ],
+        "parameters": parameter_groups
+    })
+    
+@bp.route('/scenario_constructor/save_cycle', methods=['POST'])
+@login_required
+def save_cycle():
+    if current_user.username != "admin" and current_user.role != "admin":
+        return jsonify({"success": False, "error": "Недостаточно прав"}), 403
+
+    data = request.get_json(force=True)
+
+    cycle_id = data.get("id")
+    name = str(data.get("name", "")).strip()
+    cycle_type = str(data.get("cycle_type", "Полив")).strip()
+    first_time = str(data.get("first_time", "")).strip()
+    period_minutes = int(data.get("period_minutes", 0) or 0)
+    enabled = bool(data.get("enabled", True))
+    steps = data.get("steps", [])
+
+    if not name:
+        return jsonify({"success": False, "error": "Не указано имя цикла"}), 400
+
+    if cycle_type not in ("Полив", "Свет", "Свет уровень"):
+        return jsonify({"success": False, "error": "Некорректный тип цикла"}), 400
+
+    try:
+        datetime.strptime(first_time, "%H:%M")
+    except ValueError:
+        return jsonify({"success": False, "error": "Некорректное время первого запуска"}), 400
+
+    if period_minutes < 0 or period_minutes > 1440:
+        return jsonify({"success": False, "error": "Период должен быть от 0 до 1440 минут"}), 400
+
+    if not steps:
+        return jsonify({"success": False, "error": "В цикле нет шагов"}), 400
+
+    for i, step in enumerate(steps):
+        if not str(step.get("parameter", "")).strip():
+            return jsonify({"success": False, "error": f"В шаге {i + 1} не выбран параметр"}), 400
+
+        try:
+            delay_sec = int(step.get("delay_sec", 0) or 0)
+        except ValueError:
+            return jsonify({"success": False, "error": f"Некорректная задержка в шаге {i + 1}"}), 400
+
+        if delay_sec < 0:
+            return jsonify({"success": False, "error": f"Задержка в шаге {i + 1} не может быть отрицательной"}), 400
+
+        step["delay_sec"] = delay_sec
+        step["parameter"] = str(step.get("parameter", "")).strip()
+        step["value"] = str(step.get("value", "")).strip()
+
+    try:
+        if cycle_id:
+            cycle = ScenarioCycle.query.get(int(cycle_id))
+            if not cycle:
+                return jsonify({"success": False, "error": "Цикл не найден"}), 404
+        else:
+            cycle = ScenarioCycle()
+            db.session.add(cycle)
+
+        cycle.name = name
+        cycle.cycle_type = cycle_type
+        cycle.first_time = first_time
+        cycle.period_minutes = period_minutes
+        cycle.enabled = enabled
+        cycle.steps_json = json.dumps(steps, ensure_ascii=False)
+        cycle.updated_at = datetime.utcnow()
+
+        db.session.flush()
+
+        _regenerate_scenarios_for_cycle(cycle)
+
+        db.session.commit()
+
+        return jsonify({"success": True, "id": cycle.id})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+        
+@bp.route('/scenario_constructor/delete_cycle', methods=['POST'])
+@login_required
+def delete_cycle():
+    if current_user.role != "admin":
+        return jsonify({"success": False, "error": "Недостаточно прав"}), 403
+
+    data = request.get_json(force=True)
+    cycle_id = data.get("id")
+
+    cycle = ScenarioCycle.query.get(cycle_id)
+    if not cycle:
+        return jsonify({"success": False, "error": "Цикл не найден"}), 404
+
+    try:
+        db.session.delete(cycle)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @bp.route('/scenario_parameters')
 @login_required

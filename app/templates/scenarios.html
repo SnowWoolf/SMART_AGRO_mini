@@ -24,6 +24,13 @@
                         {% for scenario in irrigation_scenarios %}
                         <tr>
                             <td>{{ scenario.time }}</td>
+														<td>
+								{% if scenario.cycle %}
+									{{ scenario.cycle.name }}
+								{% else %}
+									—
+								{% endif %}
+							</td>
                             <td>{{ scenario.parameter }}</td>
                             <td>{{ scenario.value }}</td>
                             <td>{{ scenario.result }}</td>
@@ -48,17 +55,25 @@
                     <thead>
                         <tr>
                             <th>Время</th>
-                            <th>Параметр</th>
-                            <th>Значение</th>
-                            <th>Результат</th>
-                            <th>Дата, время крайнего срабатывания</th>
-                            <th>Действия</th>
+							<th>Цикл</th>
+							<th>Параметр</th>
+							<th>Значение</th>
+							<th>Результат</th>
+							<th>Дата, время крайнего срабатывания</th>
+							<th>Действия</th>
                         </tr>
                     </thead>
                     <tbody id="light-scenarios">
                         {% for scenario in light_scenarios %}
                         <tr>
                             <td>{{ scenario.time }}</td>
+							<td>
+								{% if scenario.cycle %}
+									{{ scenario.cycle.name }}
+								{% else %}
+									—
+								{% endif %}
+							</td>
                             <td>{{ scenario.parameter }}</td>
                             <td>{{ scenario.value }}</td>
                             <td>{{ scenario.result }}</td>

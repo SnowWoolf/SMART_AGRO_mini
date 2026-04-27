@@ -60,8 +60,59 @@ class Scenario(db.Model):
     result = db.Column(db.String(64))
     last_execution = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Связь со сценарием-циклом конструктора
+    cycle_id = db.Column(db.Integer, db.ForeignKey('scenario_cycle.id'), nullable=True)
+    cycle_step_index = db.Column(db.Integer, nullable=True)
+
     def __repr__(self):
         return f'<Scenario {self.type} {self.time} {self.parameter} {self.value}>'
+        
+class ScenarioCycle(db.Model):
+    __tablename__ = 'scenario_cycle'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Пользовательское имя цикла, например:
+    # "Полив верхнего стеллажа", "Подготовка раствора", "Фитолампы день"
+    name = db.Column(db.String(128), nullable=False)
+
+    # Тип нужен для совместимости со старой таблицей Scenario:
+    # "Полив", "Свет", "Свет уровень" и т.д.
+    cycle_type = db.Column(db.String(64), nullable=False, default='Полив')
+
+    # Время первого запуска цикла в формате HH:MM
+    first_time = db.Column(db.String(5), nullable=False)
+
+    # Периодичность запуска внутри суток, в минутах
+    # Например: 240 = каждые 4 часа
+    period_minutes = db.Column(db.Integer, nullable=False)
+
+    # 1/0 — участвует ли цикл в генерации сценариев
+    enabled = db.Column(db.Boolean, default=True, nullable=False)
+
+    # JSON со списком шагов.
+    # Храним задержку от предыдущего шага, чтобы пользователю было удобно редактировать.
+    #
+    # Пример:
+    # [
+    #   {"delay_sec": 0, "parameter": "Перемешивание", "value": "1"},
+    #   {"delay_sec": 5, "parameter": "Насос", "value": "1"},
+    #   {"delay_sec": 300, "parameter": "Стеллаж 1", "value": "1"}
+    # ]
+    steps_json = db.Column(db.Text, nullable=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    scenarios = db.relationship(
+        'Scenario',
+        backref='cycle',
+        lazy=True,
+        cascade='all, delete-orphan'
+    )
+
+    def __repr__(self):
+        return f'<ScenarioCycle {self.name}>'
 
 class Tray(db.Model):
     id = db.Column(db.Integer, primary_key=True)

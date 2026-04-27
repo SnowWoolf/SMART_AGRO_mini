@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% set is_admin_user = current_user.username == 'admin' or current_user.role == 'admin' %}
+
+<div class="main-wrapper">
+  <div class="container">
+
+    <h1>Конструктор сценариев</h1>
+
+    <div class="constructor-layout">
+
+      <div class="card constructor-sidebar">
+        <div class="constructor-header">
+          <h2>Циклы</h2>
+
+          {% if is_admin_user %}
+            <button class="btn btn-primary" onclick="newCycle()">+ Новый цикл</button>
+          {% endif %}
+        </div>
+
+        <div id="cycles-list" class="cycles-list">
+          <div class="caption">Загрузка...</div>
+        </div>
+      </div>
+
+      <div class="card constructor-editor">
+
+        <div class="constructor-header">
+          <div>
+			<h2 id="editor-title">Редактор цикла</h2>
+			<div id="dirty-indicator" class="dirty-indicator saved">Сохранено</div>
+          </div>
+
+          {% if is_admin_user %}
+            <div class="constructor-actions">
+              <button class="btn" onclick="newCycle()">+ Новый</button>
+              <button class="btn btn-primary" onclick="saveCycle()">Сохранить цикл</button>
+              <button class="btn btn-danger" onclick="deleteCurrentCycle()">Удалить цикл</button>
+            </div>
+          {% endif %}
+        </div>
+
+        <input type="hidden" id="cycle-id">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cycle-name">Имя цикла</label>
+            <input type="text" id="cycle-name" class="form-control" placeholder="Например: Полив полки 1">
+          </div>
+
+          <div class="form-group">
+            <label for="cycle-type">Тип</label>
+            <select id="cycle-type" class="form-control" onchange="renderSteps()">
+              <option value="Полив">Полив</option>
+              <option value="Свет">Освещение</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="cycle-enabled">Активен</label>
+            <select id="cycle-enabled" class="form-control" onchange="updatePreview()">
+              <option value="1">Да</option>
+              <option value="0">Нет</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cycle-first-time">Первый запуск</label>
+            <input type="time" id="cycle-first-time" class="form-control" value="01:00" onchange="updatePreview()">
+          </div>
+
+          <div class="form-group">
+            <label for="cycle-period-hours">Период, часы</label>
+            <input type="number" id="cycle-period-hours" class="form-control" min="0" max="24" value="4" onchange="updatePreview()">
+          </div>
+
+          <div class="form-group">
+            <label for="cycle-period-minutes">Период, минуты</label>
+            <input type="number" id="cycle-period-minutes" class="form-control" min="0" max="59" value="0" onchange="updatePreview()">
+          </div>
+        </div>
+
+        <div class="constructor-header">
+          <h3>Последовательность шагов</h3>
+
+          {% if is_admin_user %}
+            <div class="constructor-actions">
+              <button class="btn btn-primary" onclick="addStep()">+ Добавить шаг</button>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="table-wrap">
+          <table class="table constructor-table">
+            <thead>
+              <tr>
+                <th style="width: 70px;">№</th>
+                <th>Задержка от предыдущего шага</th>
+                <th>Параметр</th>
+                <th>Значение</th>
+                <th style="width: 220px;">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="steps-body">
+              <tr>
+                <td colspan="5" class="caption">Нет шагов</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card constructor-log">
+      <div class="constructor-header">
+        <h2>Расчетное расписание на сутки</h2>
+
+        <div class="constructor-actions">
+          <span class="caption">Показывает, какие строки будут созданы в таблице сценариев</span>
+        </div>
+      </div>
+
+      <div id="preview-log" class="preview-log">
+        <div class="caption">Нет данных для предпросмотра.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const constructorDataUrl = "{{ url_for('main.scenario_constructor_data') }}";
+  const saveCycleUrl = "{{ url_for('main.save_cycle') }}";
+  const deleteCycleUrl = "{{ url_for('main.delete_cycle') }}";
+  const isAdmin = {{ 'true' if is_admin_user else 'false' }};
+</script>
+
+<script src="{{ url_for('static', filename='scripts/scenario_constructor.js') }}"></script>
+
+{% endblock %}
