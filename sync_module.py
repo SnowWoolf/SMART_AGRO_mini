@@ -432,29 +432,31 @@ def read_modem_state_for_log():
         return None
 
 
-def get_gsm_status_text() -> str:
+def get_gsm_status_state():
     modem_state = read_modem_state_for_log()
 
     if not modem_state:
-        return "Модем не обнаружен или нет данных"
+        return {
+            "connected": False,
+            "text": "Модем не обнаружен или нет данных"
+        }
 
     gsm_ip = modem_state.get("ipaddr", "")
-    level = (modem_state.get("level") or "").lower()
     net_type = modem_state.get("net_type") or "GSM"
 
     if gsm_ip:
-        return f"{net_type}: {level or 'подключен'}, IP {gsm_ip}"
+        return {
+            "connected": True,
+            "text": f"{net_type}: соединение восстановлено, IP {gsm_ip}"
+        }
 
-    return f"{net_type}: нет IP"
+    return {
+        "connected": False,
+        "text": f"{net_type}: соединение потеряно"
+    }
 
 
 def monitor_network_status():
-    """
-    Пишет в лог изменения статусов WiFi и GSM.
-    Текст совпадает с tooltip значков в верхнем меню:
-      WiFi: ...
-      GSM: ...
-    """
     global previous_network_status, last_network_status_check
 
     now = datetime.now()
@@ -467,22 +469,30 @@ def monitor_network_status():
     last_network_status_check = now
 
     wifi_text = get_wifi_client_status()
-    gsm_text = get_gsm_status_text()
+    wifi_connected = wifi_text.startswith("Подключен, получен IP:")
 
-    # Первый проход только запоминаем состояние, чтобы не спамить лог при запуске
+    gsm_state = get_gsm_status_state()
+    gsm_connected = gsm_state["connected"]
+    gsm_text = gsm_state["text"]
+
+    # Первый проход только запоминаем состояние
     if previous_network_status["wifi"] is None:
-        previous_network_status["wifi"] = wifi_text
+        previous_network_status["wifi"] = wifi_connected
+    elif previous_network_status["wifi"] != wifi_connected:
+        if wifi_connected:
+            insert_log_message(f"WiFi: соединение восстановлено, {wifi_text}", "INFO")
+        else:
+            insert_log_message("WiFi: соединение потеряно", "ERROR")
 
-    elif previous_network_status["wifi"] != wifi_text:
-        insert_log_message(f"WiFi: {wifi_text}", "INFO")
-        previous_network_status["wifi"] = wifi_text
+        previous_network_status["wifi"] = wifi_connected
 
     if previous_network_status["gsm"] is None:
-        previous_network_status["gsm"] = gsm_text
+        previous_network_status["gsm"] = gsm_connected
+    elif previous_network_status["gsm"] != gsm_connected:
+        level = "INFO" if gsm_connected else "ERROR"
+        insert_log_message(f"GSM: {gsm_text}", level)
 
-    elif previous_network_status["gsm"] != gsm_text:
-        insert_log_message(f"GSM: {gsm_text}", "INFO")
-        previous_network_status["gsm"] = gsm_text
+        previous_network_status["gsm"] = gsm_connected
 
 def read_calibration_status_direct(prefix: str, sensor_name: str):
     state = calibration_prev_states.setdefault(
