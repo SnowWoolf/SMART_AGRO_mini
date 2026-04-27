@@ -442,15 +442,6 @@ nav ul li a[data-active="true"]{
 }
 body.no-scroll{ overflow: hidden; }
 
-.control-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.4rem;
-  margin-right: 8px;
-  font-size: 1.05rem;
-}
-
 /* ===== КНОПКИ ЗНАЧЕНИЙ / ЯРКОСТИ ===== */
 .dynamic-value-btn {
   display: grid;
@@ -1255,6 +1246,7 @@ body.no-scroll{ overflow: hidden; }
 
 #toast-container {
     position: fixed;
+	top: 82px;
     right: 20px;
     z-index: 9999;
 }
@@ -1303,4 +1295,133 @@ body.no-scroll{ overflow: hidden; }
     width: 100%;
     max-width: 100%;
   }
+}
+
+.settings-section .card h2,
+.settings-section .card h3 {
+    margin: 0 0 16px 0;
+}
+
+.settings-section .card {
+    padding: 16px 22px 18px 22px;
+}
+
+.db-actions .btn {
+  text-decoration: none;
+  color: #111827;
+  background: #f3f4f6;
+  border: 1px solid transparent;
+}
+
+/* ===== Перенесены из mixing_parameters.html ===== */
+.settings-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 18px;
+    align-items: start;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #222;
+}
+
+.settings-sidebar {
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+    position: sticky;
+    top: 12px;
+}
+
+.settings-menu-item {
+    width: 100%;
+    display: block;
+    text-align: left;
+    padding: 11px 14px;
+    margin-bottom: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #222;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+}
+
+.settings-menu-item:hover {
+    background: #f3f5f8;
+}
+
+.settings-menu-item.active {
+    background: #2563eb;
+    color: #fff;
+}
+
+.settings-content {
+    min-width: 0;
+}
+
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-section .card {
+    width: 100%;
+    padding: 18px 22px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.settings-section .card h2 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.table--compact {
+    width: auto;
+    border-collapse: collapse;
+}
+
+.table--compact th {
+    font-size: 15px;
+    font-weight: 500;
+    color: #374151;
+    text-align: left;
+    padding: 8px 16px 8px 0;
+    white-space: nowrap;
+}
+
+.table--compact td {
+    font-size: 15px;
+    font-weight: 400;
+    color: #111827;
+    padding: 8px 8px;
+    vertical-align: middle;
+}
+
+.table--compact .btn,
+.card .btn {
+    padding: 7px 13px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+@media (max-width: 900px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-sidebar {
+        position: static;
+    }
 }

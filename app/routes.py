@@ -1361,8 +1361,8 @@ def mixing_parameters():
         calibration_params=calibration_params,
         wifi_client=wifi_client,
         wifi_available=wifi_available,
-        modem_state=read_modem_state(),
-        modem_config=read_modem_config(),
+        modem_state=read_modem_state() or {},
+        modem_config=read_modem_config() or {},
         firmware_versions=read_firmware_versions(),
         traffic_stats=read_traffic_stats(),
         title='Параметры'

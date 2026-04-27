@@ -13,6 +13,9 @@ from sqlalchemy import and_, func
 import threading
 import queue
 import time as _time
+import subprocess
+import json
+import re
 
 from app import db
 from app_instance import app
@@ -43,6 +46,14 @@ PH_LOW, PH_HIGH          = 5.5, 7.5
 EC_LOW, EC_HIGH          = 1.5, 2.5
 
 WATER_FLOW_THRESHOLD     = float(os.getenv("WATER_FLOW_THRESHOLD", "10"))  # л/м
+
+IW_BIN = "/usr/sbin/iw"
+WPA_CLI_BIN = "/sbin/wpa_cli"
+IP_BIN = "/sbin/ip"
+MODEM_INFO_PATH = "/run/uspd/modem/modem.info"
+WIFI_CONF_PATH = "/etc/smart-wifi/wifi.conf"
+
+NETWORK_STATUS_POLL_INTERVAL = int(os.getenv("NETWORK_STATUS_POLL_INTERVAL", "30"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 #                             Логирование & Сессия
@@ -99,6 +110,13 @@ FEED_RELAYS = [
     "Подача В в бак",
     "Подача кислоты в бак",
 ]
+
+previous_network_status = {
+    "wifi": None,
+    "gsm": None,
+}
+
+last_network_status_check = None
 
 # ─────────────────────────────────────────────────────────────────────────────
 #                          Вспомогательные функции
@@ -296,6 +314,175 @@ def update_text_parameter(name: str, value: str):
         p.value = value
         p.value_date = datetime.now()
         session.commit()
+        
+def get_wifi_ifaces():
+    ap_iface = None
+    sta_iface = None
+
+    try:
+        result = subprocess.run(
+            [IW_BIN, "dev"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+
+        if result.returncode != 0:
+            return ap_iface, sta_iface
+
+        current_iface = None
+
+        for raw_line in result.stdout.splitlines():
+            line = raw_line.strip()
+
+            if line.startswith("Interface "):
+                current_iface = line.split("Interface ", 1)[1].strip()
+
+            elif line.startswith("type ") and current_iface:
+                iface_type = line.split("type ", 1)[1].strip()
+
+                if iface_type == "AP" and ap_iface is None:
+                    ap_iface = current_iface
+                elif iface_type == "managed" and sta_iface is None:
+                    sta_iface = current_iface
+
+        return ap_iface, sta_iface
+
+    except Exception:
+        return None, None
+
+
+def get_wifi_client_status() -> str:
+    try:
+        if not os.path.exists(WIFI_CONF_PATH):
+            return "WiFi не настроен"
+
+        _, sta_iface = get_wifi_ifaces()
+
+        if not sta_iface:
+            return "Адаптер не обнаружен"
+
+        wpa = subprocess.run(
+            [WPA_CLI_BIN, "-i", sta_iface, "status"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+
+        if wpa.returncode != 0:
+            return "Сеть не подключена"
+
+        status = {}
+        for line in wpa.stdout.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                status[key.strip()] = value.strip()
+
+        if status.get("wpa_state") == "COMPLETED":
+            ip_addr = status.get("ip_address")
+            if ip_addr:
+                return f"Подключен, получен IP:  {ip_addr}"
+            return "Подключен, но IP-адрес не получен. Перезагрузите устройство"
+
+        return "Сеть не подключена"
+
+    except Exception:
+        return "Адаптер не обнаружен"
+
+
+def get_ppp0_ip():
+    try:
+        result = subprocess.run(
+            [IP_BIN, "-4", "addr", "show", "ppp0"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=3
+        )
+
+        match = re.search(r"inet\s+([0-9.]+)\s+peer", result.stdout)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"inet\s+([0-9.]+)/", result.stdout)
+        if match:
+            return match.group(1)
+
+        return ""
+
+    except Exception:
+        return ""
+
+
+def read_modem_state_for_log():
+    if not os.path.exists(MODEM_INFO_PATH):
+        return None
+
+    try:
+        with open(MODEM_INFO_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return {
+            "ipaddr": get_ppp0_ip(),
+            "level": data.get("level", ""),
+            "net_type": data.get("mode", "") or "GSM",
+        }
+
+    except Exception:
+        return None
+
+
+def get_gsm_status_text() -> str:
+    modem_state = read_modem_state_for_log()
+
+    if not modem_state:
+        return "Модем не обнаружен или нет данных"
+
+    gsm_ip = modem_state.get("ipaddr", "")
+    level = (modem_state.get("level") or "").lower()
+    net_type = modem_state.get("net_type") or "GSM"
+
+    if gsm_ip:
+        return f"{net_type}: {level or 'подключен'}, IP {gsm_ip}"
+
+    return f"{net_type}: нет IP"
+
+
+def monitor_network_status():
+    """
+    Пишет в лог изменения статусов WiFi и GSM.
+    Текст совпадает с tooltip значков в верхнем меню:
+      WiFi: ...
+      GSM: ...
+    """
+    global previous_network_status, last_network_status_check
+
+    now = datetime.now()
+
+    if last_network_status_check:
+        elapsed = (now - last_network_status_check).total_seconds()
+        if elapsed < NETWORK_STATUS_POLL_INTERVAL:
+            return
+
+    last_network_status_check = now
+
+    wifi_text = get_wifi_client_status()
+    gsm_text = get_gsm_status_text()
+
+    # Первый проход только запоминаем состояние, чтобы не спамить лог при запуске
+    if previous_network_status["wifi"] is None:
+        previous_network_status["wifi"] = wifi_text
+
+    elif previous_network_status["wifi"] != wifi_text:
+        insert_log_message(f"WiFi: {wifi_text}", "INFO")
+        previous_network_status["wifi"] = wifi_text
+
+    if previous_network_status["gsm"] is None:
+        previous_network_status["gsm"] = gsm_text
+
+    elif previous_network_status["gsm"] != gsm_text:
+        insert_log_message(f"GSM: {gsm_text}", "INFO")
+        previous_network_status["gsm"] = gsm_text
 
 def read_calibration_status_direct(prefix: str, sensor_name: str):
     state = calibration_prev_states.setdefault(
@@ -1272,6 +1459,9 @@ def poll_parameters():
     except KeyError:
         pass
 
+    # Мониторинг статусов WiFi/GSM
+    monitor_network_status()
+    
     # Функционал калибровки датчиков
     handle_calibration(params_dict)
     
