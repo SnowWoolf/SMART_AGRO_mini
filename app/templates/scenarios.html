@@ -7,12 +7,13 @@
             <div class="col">
                 <h1>Сценарии полива</h1>
                 {% if current_user.username == 'admin' %}
-                    <button class="btn btn-primary" onclick="openAddScenarioModal('Полив')">Добавить сценарий</button>
+<!--                    <button class="btn btn-primary" onclick="openAddScenarioModal('Полив')">Добавить сценарий</button> -->
                 {% endif %}
                 <table class="table">
                     <thead>
                         <tr>
                             <th>Время</th>
+							<th>Цикл</th>
                             <th>Параметр</th>
                             <th>Значение</th>
                             <th>Результат</th>
@@ -49,7 +50,7 @@
             <div class="col">
                 <h1>Сценарии света</h1>
                 {% if current_user.username == 'admin' %}
-                    <button class="btn btn-primary" onclick="openAddScenarioModal('Свет')">Добавить сценарий</button>
+<!--                    <button class="btn btn-primary" onclick="openAddScenarioModal('Свет')">Добавить сценарий</button> -->
                 {% endif %}
                 <table class="table">
                     <thead>

@@ -1144,3 +1144,47 @@ body.no-scroll{ overflow: hidden; }
 .dirty-indicator.dirty {
     color: #c27a00;
 }
+
+.cycle-day-card {
+    margin-top: 16px;
+    padding: 16px;
+}
+
+.cycle-day-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.cycle-day-svg {
+    width: 260px;
+    height: 260px;
+    display: block;
+    flex: 0 0 auto;
+}
+
+.cycle-day-legend {
+    margin-top: 10px;
+}
+
+.cycle-day-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.cycle-day-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.cycle-day-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #6b7280;
+}
