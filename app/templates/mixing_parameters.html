@@ -641,6 +641,38 @@
     </div>
 </section>
 
+<section class="card">
+    <h3>База данных</h3>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        {% if current_user.username == 'admin' %}
+			<button type="button"
+					onclick="window.location.href='/settings/export-db'"
+					class="btn btn-primary">
+				Экспорт БД
+			</button>
+		{% else %}
+			<button type="button" class="btn btn-primary" disabled>
+				Экспорт БД
+			</button>
+		{% endif %}
+
+        <input type="file"
+               id="dbFile"
+               accept=".db"
+               style="display: none;"
+               onchange="uploadDb()"
+               {% if current_user.username != 'admin' %} disabled {% endif %}>
+
+        <button type="button"
+                onclick="document.getElementById('dbFile').click()"
+                class="btn btn-primary"
+                {% if current_user.username != 'admin' %} disabled {% endif %}>
+            Импорт БД
+        </button>
+    </div>
+</section>
+
     <section class="card">
         <h2>Перезагрузка</h2>
 
@@ -683,7 +715,6 @@
         </div>
     </div>
 
-</div>
 
 <!-- CSS -->
 <style>
@@ -1177,6 +1208,43 @@ function showSettingsSection(sectionName, button) {
     }
 }
 
+function uploadDb() {
+    const input = document.getElementById('dbFile');
+
+    if (!input.files || input.files.length === 0) {
+        return;
+    }
+
+    const file = input.files[0];
+
+    if (!file.name.toLowerCase().endsWith('.db')) {
+        alert('Выберите файл базы данных с расширением .db');
+        input.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/settings/import-db', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json().then(body => ({status: r.status, body})))
+    .then(({status, body}) => {
+        if (status >= 200 && status < 300) {
+            alert(body.message || 'БД успешно загружена. Веб-сервис перезапущен. Обновите страницу через 1 минуту.');
+        } else {
+            alert(body.error || 'Ошибка при импорте БД.');
+        }
+    })
+    .catch(() => {
+        alert('Сетевая ошибка при импорте БД.');
+    })
+    .finally(() => {
+        input.value = '';
+    });
+}
 </script>
 
 {% endblock %}

@@ -1,5 +1,5 @@
 from . import db, login as login_manager
-from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, jsonify
+from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
 from flask_login import current_user, login_user, logout_user, login_required
 from .models import User, Parameter, Scenario, ScenarioCycle, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
 from .forms import LoginForm, CultureForm
@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import logging
 from functools import wraps
+import sqlite3
 
 # === WiFi-адаптер и модем: импорты и определения===
 import os
@@ -871,6 +872,120 @@ def _regenerate_scenarios_for_cycle(cycle):
         rows = _generate_scenarios_for_cycle(cycle)
         for row in rows:
             db.session.add(row)
+
+# Вспомогательные функции для импорта-экспорта БД
+def is_sqlite_file(path):
+    try:
+        with open(path, 'rb') as f:
+            header = f.read(16)
+        return header.startswith(b'SQLite format 3')
+    except:
+        return False
+
+
+def can_open_sqlite(path):
+    try:
+        conn = sqlite3.connect(path)
+        conn.execute("SELECT name FROM sqlite_master LIMIT 1;")
+        conn.close()
+        return True
+    except:
+        return False
+
+
+def get_tables(path):
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table'
+        AND name NOT LIKE 'sqlite_%'
+    """)
+
+    tables = sorted([row[0] for row in cur.fetchall()])
+    conn.close()
+    return tables
+
+
+def compare_db_structure(old_db, new_db):
+    try:
+        return set(get_tables(old_db)) == set(get_tables(new_db))
+    except Exception:
+        return False
+        
+def update_config_db_name(db_name):
+    from config import DB_PATH
+
+    project_dir = os.path.dirname(DB_PATH)
+    config_path = os.path.join(project_dir, "config.py")
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    new_content = re.sub(
+        r'DB_NAME\s*=\s*os\.getenv\("DB_NAME",\s*"[^"]*"\)',
+        f'DB_NAME = os.getenv("DB_NAME", "{db_name}")',
+        content
+    )
+
+    if new_content == content:
+        raise RuntimeError("Не удалось найти строку DB_NAME в config.py")
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
+
+def is_service_active(service_name):
+    result = subprocess.run(
+        ["/bin/systemctl", "is-active", service_name],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    return result.stdout.strip() == "active"
+
+
+def restart_service_and_wait(service_name, timeout_sec=30):
+    subprocess.run(
+        ["/bin/systemctl", "restart", service_name],
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+
+    for _ in range(timeout_sec):
+        if is_service_active(service_name):
+            return True
+        time.sleep(1)
+
+    return False
+    
+def cleanup_old_dbs(project_dir, current_db_name, keep_old=3):
+    current_db_path = os.path.join(project_dir, current_db_name)
+
+    db_files = []
+    for name in os.listdir(project_dir):
+        if not name.endswith(".db"):
+            continue
+
+        path = os.path.join(project_dir, name)
+
+        if os.path.abspath(path) == os.path.abspath(current_db_path):
+            continue
+
+        if not os.path.isfile(path):
+            continue
+
+        db_files.append(path)
+
+    db_files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+
+    for path in db_files[keep_old:]:
+        try:
+            os.remove(path)
+        except Exception as e:
+            logger.warning("Не удалось удалить старую БД %s: %s", path, e)
 
 
 @bp.route('/scenarios')
@@ -2251,3 +2366,109 @@ def inject_status_flags():
     
 if not _traffic_timer_started:
     start_traffic_stats_worker()
+    
+# Импорт/экспорт БД из веб
+@bp.route('/settings/export-db')
+@login_required
+def export_db():
+    from config import DB_PATH
+
+    if current_user.username != "admin" and current_user.role != "admin":
+        return jsonify({"error": "Недостаточно прав"}), 403
+
+    return send_file(
+        DB_PATH,
+        as_attachment=True,
+        download_name=os.path.basename(DB_PATH)
+    )
+    
+@bp.route('/settings/import-db', methods=['POST'])
+@login_required
+def import_db():
+    from config import DB_PATH
+
+    if current_user.username != "admin" and current_user.role != "admin":
+        return jsonify({"error": "Недостаточно прав"}), 403
+
+    file = request.files.get('file')
+    if not file or not file.filename.endswith('.db'):
+        return jsonify({'error': 'Неверный файл'}), 400
+
+    project_dir = os.path.dirname(DB_PATH)
+
+    old_db_path = DB_PATH
+    old_db_name = os.path.basename(DB_PATH)
+
+    current_base_name = os.path.splitext(os.path.basename(DB_PATH))[0]
+    date_str = datetime.now().strftime('%d%m%y')
+
+    # Если текущая БД уже вида mini-demo-270426 или mini-demo-270426-1,
+    # берём исходное имя mini-demo
+    base_name = re.sub(r'-\d{6}(?:-\d+)?$', '', current_base_name)
+
+    new_name = f"{base_name}-{date_str}.db"
+    new_path = os.path.join(project_dir, new_name)
+
+    i = 1
+    while os.path.exists(new_path):
+        new_name = f"{base_name}-{date_str}-{i}.db"
+        new_path = os.path.join(project_dir, new_name)
+        i += 1
+
+    file.save(new_path)
+
+    # === ВАЛИДАЦИЯ ===
+    if not is_sqlite_file(new_path):
+        os.remove(new_path)
+        return jsonify({"error": "Файл не является SQLite базой"}), 400
+
+    if not can_open_sqlite(new_path):
+        os.remove(new_path)
+        return jsonify({"error": "БД повреждена"}), 400
+
+    if not compare_db_structure(old_db_path, new_path):
+        os.remove(new_path)
+        return jsonify({"error": "Структура БД не совпадает"}), 400
+
+    # === ПЕРЕКЛЮЧАЕМ config.py НА НОВУЮ БД ===
+    try:
+        update_config_db_name(new_name)
+    except Exception as e:
+        os.remove(new_path)
+        return jsonify({"error": f"Не удалось обновить config.py: {e}"}), 500
+
+    # === ПРОВЕРЯЕМ agrosmart_sync НА НОВОЙ БД ===
+    sync_ok = restart_service_and_wait("agrosmart_sync", timeout_sec=30)
+
+    if not sync_ok:
+        # ОТКАТ config.py НА СТАРУЮ БД
+        try:
+            update_config_db_name(old_db_name)
+            rollback_ok = restart_service_and_wait("agrosmart_sync", timeout_sec=30)
+        except Exception:
+            rollback_ok = False
+
+        # web НЕ перезапускаем
+        if rollback_ok:
+            return jsonify({
+                "error": "Не удалось загрузить БД, т.к она содержит ошибки. Произошло восстановление предыдущей версии"
+            }), 500
+        else:
+            return jsonify({
+            "error": "Не удалось загрузить БД. Также не удалось автоматически восстановить agrosmart_sync. Требуется ручная проверка."
+            }), 500
+
+    # === sync поднялся — теперь можно перезапускать web ===
+    web_ok = subprocess.Popen(["/bin/systemctl", "restart", "agrosmart_web"])
+
+    if not web_ok:
+        return jsonify({
+            "error": "БД загружена, agrosmart_sync запущен, но agrosmart_web не поднялся. Обновите страницу позже или проверьте сервис вручную."
+        }), 500
+
+    # === чистим старые БД: активная + не более 3 старых ===
+    cleanup_old_dbs(project_dir, new_name, keep_old=3)
+
+    return jsonify({
+        "message": "БД успешно загружена. Веб-сервис перезапущен. Обновите страницу через 1 минуту."
+    }), 200
