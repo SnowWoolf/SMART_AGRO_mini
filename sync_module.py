@@ -65,6 +65,7 @@ feed_started_flags      = set()
 previous_device_values  = {}
 previous_db_values      = {}
 first_run               = True
+previous_maintenance_mode   = None
 last_critical_links     = {}
 _prev_water_flow        = None
 _prev_total_volume      = None
@@ -141,8 +142,7 @@ def is_calibration_readonly_param(name: str) -> bool:
         "EC_CALC_DO",
         "EC Calibration Start",
     }
-
-
+    
 # ─────────────────────────────────────────────────────────────────────────────
 #                          Вспомогательные функции DB
 # ─────────────────────────────────────────────────────────────────────────────
@@ -262,6 +262,22 @@ def get_parameter(name: str) -> Parameter:
 def get_parameter_value(name: str) -> str:
     p = get_parameter(name)
     return p.value
+    
+def get_maintenance_mode_value() -> str:
+    """
+    Режим ТО:
+    1 = сценарии запрещены
+    0 = сценарии разрешены
+    """
+    p = session.query(Parameter).filter_by(
+        controlled_parameter_name="Режим ТО"
+    ).first()
+
+    if not p:
+        logger.warning("Параметр 'Режим ТО' не найден. Сценарии будут разрешены.")
+        return "0"
+
+    return str(p.value or "0")
 
 
 def update_parameter_value(name: str, value: str):
@@ -645,6 +661,68 @@ def group_parameters(params):
 # ─────────────────────────────────────────────────────────────────────────────
 #                         Сценарии (execute_scenarios)
 # ─────────────────────────────────────────────────────────────────────────────
+def skip_due_scenarios(reason: str = "Режим ТО"):
+    today = date.today()
+    now_t = datetime.now().time()
+
+    scs = session.query(Scenario).filter(
+        and_(
+            Scenario.time <= now_t,
+            (Scenario.last_execution == None) |
+            (func.date(Scenario.last_execution) < today)
+        )
+    ).all()
+
+    for sc in scs:
+        sc.result = f"Пропущено: {reason}"
+        sc.last_execution = datetime.now()
+
+    session.commit()
+
+
+def restore_stateful_scenarios_after_maintenance():
+    """
+    После выхода из режима ТО восстанавливаем текущее состояние
+    длительных сценариев: свет, уровни света.
+    Полив здесь не восстанавливаем, чтобы не запускать насосы посреди цикла.
+    """
+    today = date.today()
+    now_t = datetime.now().time()
+
+    scs = session.query(Scenario).filter(
+        and_(
+            Scenario.type.in_(["Свет", "Свет уровень"]),
+            Scenario.time <= now_t
+        )
+    ).order_by(Scenario.parameter, Scenario.time, Scenario.id).all()
+
+    latest_by_param = {}
+
+    for sc in scs:
+        latest_by_param[sc.parameter] = sc
+
+    for parameter_name, sc in latest_by_param.items():
+        p = session.query(Parameter).filter_by(
+            controlled_parameter_name=parameter_name
+        ).first()
+
+        if not p:
+            logger.error(f"Восстановление после ТО: параметр {parameter_name} не найден")
+            continue
+
+        p.value = sc.value
+        p.value_date = datetime.now()
+
+        sc.result = "Восстановлено после ТО"
+        sc.last_execution = datetime.now()
+
+        insert_log_message(
+            f"После выхода из режима ТО восстановлено: {p.controlled_parameter_name} → {format_value(p, p.value)}",
+            "INFO"
+        )
+
+    session.commit()
+    
 def execute_scenarios():
     today = date.today()
     now_t = datetime.now().time()
@@ -1230,6 +1308,8 @@ def poll_parameters():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_sync():
+    global previous_maintenance_mode
+    
     with app.app_context():
         _dispatcher_thread = threading.Thread(target=_max_dispatcher, daemon=True)
         _dispatcher_thread.start()
@@ -1251,15 +1331,20 @@ def run_sync():
 
         while True:
             try:
-                mode_param = session.query(Parameter).filter_by(
-                    controlled_parameter_name="Режим эксплуатации"
-                ).first()
-                mode = mode_param.value if mode_param else "0"
-
-                if mode != "1":
-                    execute_scenarios()
-
                 poll_parameters()
+
+                mode = get_maintenance_mode_value()
+
+                if mode == "1":
+                    skip_due_scenarios("Режим ТО")
+                    previous_maintenance_mode = "1"
+                else:
+                    if previous_maintenance_mode == "1":
+                        restore_stateful_scenarios_after_maintenance()
+
+                    execute_scenarios()
+                    previous_maintenance_mode = "0"
+
                 check_offline_alarms()
 
             except Exception as e:

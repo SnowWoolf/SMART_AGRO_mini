@@ -41,21 +41,15 @@ async function loadConstructorData() {
 
     constructorData = await resp.json();
 
-	renderCyclesList();
-
-	if (constructorData.cycles.length > 0) {
-		selectCycle(constructorData.cycles[0].id);
-	} else {
-		newCycle();
-	}
-
-	renderDayVisualization();
+    renderCyclesList();
 
     if (constructorData.cycles.length > 0) {
         selectCycle(constructorData.cycles[0].id);
     } else {
         newCycle();
     }
+
+    renderDayVisualization();
 }
 
 function renderCyclesList() {
@@ -363,7 +357,7 @@ async function saveCycle() {
     const result = await resp.json();
 
     if (!result.success) {
-        alert(result.error || 'Ошибка сохранения');
+        showToast('Ошибка сохранения цикла', 'error');
         return;
     }
 
@@ -371,7 +365,7 @@ async function saveCycle() {
 	selectCycle(result.id);
 	renderDayVisualization();
 	setDirty(false);
-	alert('Цикл успешно сохранен');
+	showToast('Цикл сохранён');
 }
 
 async function deleteCurrentCycle() {
@@ -458,15 +452,15 @@ function buildPreviewEvents(firstTime, periodMinutes, steps) {
 		steps.forEach((step, stepIndex) => {
 			offset += parseInt(step.delay_sec || 0, 10);
 			const eventSec = startSec + offset;
+			const normalizedSec = ((eventSec % 86400) + 86400) % 86400;
+			const dayShift = Math.floor(eventSec / 86400);
 
-			if (eventSec < 86400) {
-				result.push({
-					time: secondsToHHMMSS(eventSec),
-					stepIndex,
-					parameter: step.parameter || '',
-					value: step.value
-				});
-			}
+			result.push({
+				time: secondsToHHMMSS(normalizedSec) + (dayShift > 0 ? ` +${dayShift}д` : ''),
+				stepIndex,
+				parameter: step.parameter || '',
+				value: step.value
+			});
 		});
 
 		return result;
@@ -477,15 +471,15 @@ function buildPreviewEvents(firstTime, periodMinutes, steps) {
         steps.forEach((step, stepIndex) => {
             offset += parseInt(step.delay_sec || 0, 10);
             const eventSec = startSec + offset;
+            const normalizedSec = ((eventSec % 86400) + 86400) % 86400;
+			const dayShift = Math.floor(eventSec / 86400);
 
-            if (eventSec < 86400) {
-                result.push({
-                    time: secondsToHHMMSS(eventSec),
-                    stepIndex,
-                    parameter: step.parameter || '',
-                    value: step.value
-                });
-            }
+			result.push({
+				time: secondsToHHMMSS(normalizedSec) + (dayShift > 0 ? ` +${dayShift}д` : ''),
+				stepIndex,
+				parameter: step.parameter || '',
+				value: step.value
+			});
         });
 
         startSec += periodMinutes * 60;
@@ -606,28 +600,47 @@ function buildCycleIntervalsForDay(cycle) {
     const firstSec = hhmmToSeconds(cycle.first_time || '00:00');
     const periodMin = parseInt(cycle.period_minutes || 0, 10);
 
-    const duration = getCycleDurationSec(steps);
-    if (duration <= 0) return [];
+    let offset = 0;
+    let firstEventOffset = null;
+    let lastEventOffset = null;
+
+    steps.forEach(step => {
+        offset += parseInt(step.delay_sec || 0, 10);
+
+        if (firstEventOffset === null) {
+            firstEventOffset = offset;
+        }
+
+        lastEventOffset = offset;
+    });
+
+    if (firstEventOffset === null || lastEventOffset === null) {
+        return [];
+    }
+
+    if (lastEventOffset <= firstEventOffset) {
+        lastEventOffset = firstEventOffset + 60;
+    }
 
     const intervals = [];
 
+    function addInterval(cycleStartSec) {
+        const start = cycleStartSec + firstEventOffset;
+        const end = cycleStartSec + lastEventOffset;
+
+        intervals.push({ start, end });
+    }
+
     if (periodMin === 0) {
-        intervals.push({
-            start: firstSec,
-            end: Math.min(firstSec + duration, 86400)
-        });
+        addInterval(firstSec);
         return intervals;
     }
 
-    let start = firstSec;
+    let cycleStart = firstSec;
 
-    while (start < 86400) {
-        intervals.push({
-            start,
-            end: Math.min(start + duration, 86400)
-        });
-
-        start += periodMin * 60;
+    while (cycleStart < 86400) {
+        addInterval(cycleStart);
+        cycleStart += periodMin * 60;
     }
 
     return intervals;
@@ -683,26 +696,53 @@ function drawDayBase(svg) {
 function drawIntervalArc(svg, startSec, endSec, color, layerIndex) {
     if (endSec <= startSec) return;
 
+    const day = 86400;
+
+    if (endSec - startSec >= day) {
+        drawArcPart(svg, 0, day, color, layerIndex);
+        return;
+    }
+
+    const startNorm = ((startSec % day) + day) % day;
+    const endNorm = ((endSec % day) + day) % day;
+
+    if (startNorm < endNorm && Math.floor(startSec / day) === Math.floor(endSec / day)) {
+        drawArcPart(svg, startNorm, endNorm, color, layerIndex);
+    } else {
+        drawArcPart(svg, startNorm, day, color, layerIndex);
+        drawArcPart(svg, 0, endNorm, color, layerIndex);
+    }
+}
+
+function drawArcPart(svg, startSec, endSec, color, layerIndex) {
+    if (endSec <= startSec) return;
+
     const cx = 130;
     const cy = 130;
+    const r = 82;
+    const day = 86400;
+    const circumference = 2 * Math.PI * r;
 
-    const radius = 82;
     const width = Math.max(5, 24 - layerIndex * 3);
 
-    const startAngle = secToAngle(startSec);
-    const endAngle = secToAngle(endSec);
+    const length = ((endSec - startSec) / day) * circumference;
+    const offset = -(startSec / day) * circumference;
 
-    const path = describeArc(cx, cy, radius, startAngle, endAngle);
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
 
-    const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    arc.setAttribute('d', path);
-    arc.setAttribute('fill', 'none');
-    arc.setAttribute('stroke', color);
-    arc.setAttribute('stroke-width', width);
-    arc.setAttribute('stroke-linecap', 'butt');
-    arc.setAttribute('opacity', layerIndex === 0 ? '0.88' : '0.70');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', r);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', color);
+    circle.setAttribute('stroke-width', width);
+    circle.setAttribute('stroke-dasharray', `${length} ${circumference - length}`);
+    circle.setAttribute('stroke-dashoffset', offset);
+    circle.setAttribute('stroke-linecap', 'butt');
+    circle.setAttribute('opacity', layerIndex === 0 ? '0.88' : '0.70');
+    circle.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
 
-    svg.appendChild(arc);
+    svg.appendChild(circle);
 }
 
 function drawTimeLabel(svg, text, x, y) {
@@ -735,15 +775,37 @@ function polarToXY(cx, cy, r, angleDeg) {
     };
 }
 
-function describeArc(cx, cy, r, startAngle, endAngle) {
-    const start = polarToXY(cx, cy, r, startAngle);
-    const end = polarToXY(cx, cy, r, endAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+function showToast(message, type = 'success', duration = 2500) {
+    const container = document.getElementById('toast-container');
 
-    return [
-        'M', start.x, start.y,
-        'A', r, r, 0, largeArcFlag, 1, end.x, end.y
-    ].join(' ');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    // анимация появления
+    requestAnimationFrame(() => {
+        toast.classList.add('show');
+    });
+
+    // удаление
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
 }
 
+function updateToastOffset() {
+    const header = document.querySelector('nav');
+    const container = document.getElementById('toast-container');
+
+    if (!header || !container) return;
+
+    const rect = header.getBoundingClientRect();
+    container.style.top = (rect.height + 12) + 'px';
+}
+
+window.addEventListener('load', updateToastOffset);
+window.addEventListener('resize', updateToastOffset);
 document.addEventListener('DOMContentLoaded', loadConstructorData);

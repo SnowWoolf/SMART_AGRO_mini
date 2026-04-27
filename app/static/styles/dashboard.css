@@ -929,46 +929,6 @@ body.no-scroll{ overflow: hidden; }
   }
 }
 
-/* мобильная версия */
-@media (max-width: 700px) {
-  .modem-settings-grid {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
-
-  .modem-settings-group {
-    padding-bottom: 22px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .modem-common-settings {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
-    max-width: none;
-  }
-
-  .modem-row {
-    grid-template-columns: 1fr;
-    gap: 7px;
-  }
-
-  .modem-row span {
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .modem-row .form-control {
-    max-width: 100%;
-    width: 100%;
-  }
-
-  .modem-row input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-  }
-}
-
 /* ===== Конструктор сценариев ===== */
 
 .constructor-layout {
@@ -1189,6 +1149,7 @@ body.no-scroll{ overflow: hidden; }
     color: #6b7280;
 }
 
+/* Отображение версии ПО и БД */
 .device-version-row {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
@@ -1213,3 +1174,108 @@ body.no-scroll{ overflow: hidden; }
     gap: 4px;
   }
 }
+
+/* Таблица Расход трафика */
+.traffic-list {
+  width: 620px;
+  max-width: 100%;
+  display: grid;
+  gap: 6px;
+}
+
+.traffic-list-head,
+.traffic-list-row {
+  display: grid;
+  grid-template-columns: 140px 180px 180px;
+  column-gap: 14px;
+  align-items: center;
+}
+
+.traffic-list-head span:nth-child(1),
+.traffic-list-row span:nth-child(1) {
+  text-align: left;
+}
+
+.traffic-list-head span:nth-child(2),
+.traffic-list-head span:nth-child(3),
+.traffic-list-row span:nth-child(2),
+.traffic-list-row span:nth-child(3) {
+  text-align: right;
+}
+
+.traffic-list-row {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.traffic-channel {
+  font-weight: 600;
+  color: #111827;
+}
+
+.traffic-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #111827;
+}
+
+@media (max-width: 700px) {
+  .traffic-list {
+	width: 100%;
+    max-width: none;
+  }
+
+  .traffic-list-head {
+    display: none;
+  }
+
+  .traffic-list-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .traffic-value {
+    text-align: left;
+  }
+
+  .traffic-value:nth-child(2)::before {
+    content: "Текущий месяц: ";
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .traffic-value:nth-child(3)::before {
+    content: "Предыдущий месяц: ";
+    font-weight: 600;
+    color: var(--muted);
+  }
+}
+
+#toast-container {
+    position: fixed;
+    right: 20px;
+    z-index: 9999;
+}
+
+.toast {
+    min-width: 240px;
+    margin-bottom: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast.success { background: #2ecc71; }
+.toast.error   { background: #e74c3c; }

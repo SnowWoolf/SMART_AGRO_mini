@@ -602,6 +602,26 @@
     </div>
 </section>
 {% endif %}	
+
+<section class="card">
+    <h2>Расход трафика</h2>
+
+    <div class="traffic-list">
+        <div class="traffic-list-head">
+            <span>Канал</span>
+            <span>Текущий месяц</span>
+            <span>Предыдущий месяц</span>
+        </div>
+
+        {% for row in traffic_stats %}
+        <div class="traffic-list-row">
+            <span class="traffic-channel">{{ row.name }}</span>
+            <span class="traffic-value">{{ row.current_month }}</span>
+            <span class="traffic-value">{{ row.previous_month }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
 	
 </div>
 

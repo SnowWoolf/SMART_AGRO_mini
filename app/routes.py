@@ -15,12 +15,17 @@ import tempfile
 import re
 import subprocess
 import json
+import threading
+import time
 IW_BIN = "/usr/sbin/iw"
 WPA_CLI_BIN = "/sbin/wpa_cli"
 IP_BIN = "/sbin/ip"
 MODEM_CONF_PATH = "/etc/uspd/modem/uspd-modem.conf"
 MODEM_SIM_PRIO_PATH = "/etc/uspd/modem/uspd-sim-prio.conf"
 MODEM_INFO_PATH = "/run/uspd/modem/modem.info"
+TRAFFIC_STATS_PATH = "/var/lib/agrosmart/traffic_stats.json"
+TRAFFIC_POLL_INTERVAL_SEC = 300
+_traffic_timer_started = False
 
 
 # === КАМЕРА: импорты ===
@@ -188,6 +193,202 @@ def get_wifi_client_status() -> str:
     except Exception as e:
         print("get_wifi_client_status EXCEPTION:", repr(e))
         return "Адаптер не обнаружен"
+        
+def _read_iface_traffic_bytes(iface):
+    base = f"/sys/class/net/{iface}/statistics"
+    try:
+        with open(os.path.join(base, "rx_bytes"), "r") as f:
+            rx = int(f.read().strip())
+        with open(os.path.join(base, "tx_bytes"), "r") as f:
+            tx = int(f.read().strip())
+        return rx + tx
+    except Exception:
+        return None
+
+
+def _get_existing_ifaces():
+    try:
+        return os.listdir("/sys/class/net")
+    except Exception:
+        return []
+
+
+def _get_wifi_traffic_ifaces():
+    _, sta_iface = get_wifi_ifaces()
+    if sta_iface:
+        return [sta_iface]
+
+    # fallback
+    return [
+        i for i in _get_existing_ifaces()
+        if i.startswith("wlan") or i.startswith("wlx")
+    ]
+
+
+def _get_traffic_counters():
+    ifaces = _get_existing_ifaces()
+
+    ethernet_ifaces = [
+        i for i in ifaces
+        if i.startswith("eth") or i.startswith("en")
+    ]
+
+    wifi_ifaces = _get_wifi_traffic_ifaces()
+
+    gsm_ifaces = [
+        i for i in ifaces
+        if i.startswith("ppp") or i.startswith("wwan")
+    ]
+
+    groups = {
+        "ethernet": ethernet_ifaces,
+        "wifi": wifi_ifaces,
+        "gsm": gsm_ifaces,
+    }
+
+    counters = {}
+
+    for group, group_ifaces in groups.items():
+        total = 0
+        found = False
+
+        for iface in group_ifaces:
+            value = _read_iface_traffic_bytes(iface)
+            if value is not None:
+                total += value
+                found = True
+
+        counters[group] = total if found else None
+
+    return counters
+
+
+def _format_traffic_bytes(value):
+    if value is None:
+        return "—"
+
+    units = ["Б", "КБ", "МБ", "ГБ", "ТБ"]
+    size = float(value)
+
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            if unit == "Б":
+                return f"{int(size)} {unit}"
+            return f"{size:.2f} {unit}"
+        size /= 1024
+
+
+def read_traffic_stats():
+    now = datetime.now()
+    current_month = now.strftime("%Y-%m")
+
+    first_day = now.replace(day=1)
+    prev_month_date = first_day - timedelta(days=1)
+    prev_month = prev_month_date.strftime("%Y-%m")
+
+    counters = _get_traffic_counters()
+
+    state = {
+        "last_month": current_month,
+        "last_counters": {},
+        "months": {}
+    }
+
+    try:
+        if os.path.exists(TRAFFIC_STATS_PATH):
+            with open(TRAFFIC_STATS_PATH, "r", encoding="utf-8") as f:
+                state = json.load(f)
+    except Exception:
+        pass
+
+    state.setdefault("last_counters", {})
+    state.setdefault("months", {})
+
+    # если месяц сменился — начинаем новый месяц с текущих счётчиков
+    if state.get("last_month") != current_month:
+        state["last_month"] = current_month
+        state["last_counters"] = {}
+
+    state["months"].setdefault(current_month, {})
+    state["months"].setdefault(prev_month, {})
+
+    for channel, current_counter in counters.items():
+        if current_counter is None:
+            continue
+
+        last_counter = state["last_counters"].get(channel)
+
+        if last_counter is None:
+            delta = 0
+        elif current_counter >= last_counter:
+            delta = current_counter - last_counter
+        else:
+            # счётчик интерфейса сбросился после перезагрузки
+            delta = current_counter
+
+        state["months"][current_month][channel] = (
+            int(state["months"][current_month].get(channel, 0)) + int(delta)
+        )
+
+        state["last_counters"][channel] = current_counter
+
+    # храним только последние 3 месяца
+    keep_months = sorted(state["months"].keys())[-3:]
+    state["months"] = {m: state["months"][m] for m in keep_months}
+
+    try:
+        os.makedirs(os.path.dirname(TRAFFIC_STATS_PATH), exist_ok=True)
+        with open(TRAFFIC_STATS_PATH, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning("Не удалось сохранить статистику трафика: %s", e)
+
+    labels = {
+        "ethernet": "Ethernet",
+        "wifi": "WiFi",
+        "gsm": "GSM"
+    }
+
+    result = []
+
+    for channel in ("ethernet", "wifi", "gsm"):
+        result.append({
+            "name": labels[channel],
+            "current_month": _format_traffic_bytes(
+                state["months"].get(current_month, {}).get(channel)
+            ),
+            "previous_month": _format_traffic_bytes(
+                state["months"].get(prev_month, {}).get(channel)
+            )
+        })
+
+    return result
+    
+def traffic_stats_worker():
+    logger.info("Фоновый сбор статистики трафика запущен")
+
+    while True:
+        try:
+            read_traffic_stats()
+        except Exception as e:
+            logger.warning("Ошибка фонового сбора трафика: %s", e)
+
+        time.sleep(TRAFFIC_POLL_INTERVAL_SEC)
+
+
+def start_traffic_stats_worker():
+    global _traffic_timer_started
+
+    if _traffic_timer_started:
+        return
+
+    _traffic_timer_started = True
+
+    thread = threading.Thread(
+        target=traffic_stats_worker,
+        daemon=True
+    )
+    thread.start()
         
 # === КАМЕРА: вспомогалки ===
 def _abs(p: str) -> str:
@@ -618,25 +819,30 @@ def _generate_scenarios_for_cycle(cycle):
 
     generated = []
 
-    day_start = datetime.combine(datetime.today(), datetime.min.time())
-    first_start = datetime.combine(datetime.today(), start_time)
-    day_end = day_start + timedelta(days=1)
+    first_start_dt = datetime.combine(datetime.today(), start_time)
+    day_start_dt = datetime.combine(datetime.today(), datetime.min.time())
 
-    def add_cycle_steps(cycle_start):
+    def add_cycle_steps(cycle_start_dt):
         offset_sec = 0
 
         for step_index, step in enumerate(steps):
             delay_sec = int(step.get("delay_sec", 0) or 0)
             offset_sec += delay_sec
 
-            event_dt = cycle_start + timedelta(seconds=offset_sec)
+            event_dt = cycle_start_dt + timedelta(seconds=offset_sec)
 
-            if event_dt >= day_end:
-                continue
+            # ВАЖНО:
+            # если событие ушло за 24:00, переносим его в начало суток.
+            seconds_from_day_start = int((event_dt - day_start_dt).total_seconds())
+            normalized_seconds = seconds_from_day_start % 86400
+
+            event_time = (
+                day_start_dt + timedelta(seconds=normalized_seconds)
+            ).time().replace(microsecond=0)
 
             generated.append(Scenario(
                 type=cycle.cycle_type,
-                time=event_dt.time().replace(microsecond=0),
+                time=event_time,
                 parameter=str(step.get("parameter", "")).strip(),
                 value=str(step.get("value", "")).strip(),
                 result="",
@@ -646,14 +852,14 @@ def _generate_scenarios_for_cycle(cycle):
             ))
 
     if period_minutes == 0:
-        add_cycle_steps(first_start)
+        add_cycle_steps(first_start_dt)
         return generated
 
-    cycle_start = first_start
+    cycle_start_dt = first_start_dt
 
-    while cycle_start < day_end:
-        add_cycle_steps(cycle_start)
-        cycle_start += timedelta(minutes=period_minutes)
+    while (cycle_start_dt - day_start_dt).total_seconds() < 86400:
+        add_cycle_steps(cycle_start_dt)
+        cycle_start_dt += timedelta(minutes=period_minutes)
 
     return generated
 
@@ -788,7 +994,7 @@ def save_cycle():
 @bp.route('/scenario_constructor/delete_cycle', methods=['POST'])
 @login_required
 def delete_cycle():
-    if current_user.role != "admin":
+    if current_user.username != "admin" and current_user.role != "admin":
         return jsonify({"success": False, "error": "Недостаточно прав"}), 403
 
     data = request.get_json(force=True)
@@ -1043,6 +1249,7 @@ def mixing_parameters():
         modem_state=read_modem_state(),
         modem_config=read_modem_config(),
         firmware_versions=read_firmware_versions(),
+        traffic_stats=read_traffic_stats(),
         title='Параметры'
        )
 
@@ -2040,3 +2247,7 @@ def inject_status_flags():
         "wifi_available": os.path.exists("/etc/smart-wifi/wifi.conf"),
         "modem_available": os.path.exists(MODEM_INFO_PATH)
     }
+    
+    
+if not _traffic_timer_started:
+    start_traffic_stats_worker()
