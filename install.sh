@@ -13,10 +13,11 @@ apt-get update
 echo "== install system packages =="
 apt-get install -y \
     git \
-    python3 \
+    python3.8 \
+    python3.8-venv \
     python3-pip \
-    python3-venv \
-    python3-opencv
+    python3-opencv \
+    python3-numpy
 
 # создаём пользователя agro если нет
 if ! id "agro" &>/dev/null; then
@@ -38,15 +39,16 @@ cd "$APP_DIR"
 
 echo "== create venv =="
 rm -rf "$VENV_DIR"
-python3 -m venv "$VENV_DIR" --system-site-packages
+python3.8 -m venv "$VENV_DIR" --system-site-packages
 
-source "$VENV_DIR/bin/activate"
+echo "== check cv2 =="
+"$VENV_DIR/bin/python3" -c "import cv2; print('cv2 OK:', cv2.__version__)"
 
 echo "== upgrade pip =="
-pip install --upgrade pip
+"$VENV_DIR/bin/python3" -m pip install --upgrade pip
 
 echo "== install requirements =="
-pip install -r requirements.txt
+"$VENV_DIR/bin/python3" -m pip install -r requirements.txt
 
 echo "== create systemd service: web =="
 
