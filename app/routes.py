@@ -2412,7 +2412,7 @@ def import_db():
     old_db_path = DB_PATH
     old_db_name = os.path.basename(DB_PATH)
 
-    current_base_name = os.path.splitext(os.path.basename(DB_PATH))[0]
+    current_base_name = os.path.splitext(os.path.basename(file.filename))[0]
     date_str = datetime.now().strftime('%d%m%y')
 
     # Если текущая БД уже вида mini-demo-270426 или mini-demo-270426-1,
