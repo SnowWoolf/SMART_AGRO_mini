@@ -84,6 +84,22 @@
                     </button>
                 </td>
             </tr>
+			<tr>
+				<th title="На время открытия клапанов растворного узла закрывается клапан перемешивания. Для растворных узлов на клапанах, управляемых WB-MR6C">
+					Отключать перемешивание при дозировании
+				</th>
+				<td>
+					<label style="display: inline-flex; align-items: center; gap: 8px;">
+						<input type="checkbox"
+							id="close_mixing_valve_flag"
+							title="На время открытия клапанов растворного узла закрывается клапан перемешивания. Для растворных узлов на клапанах, управляемых WB-MR6C"
+							{% if parameters_dict.get('Закрывать клапан перемешивания на время работы растворного узла') == '1' %}checked{% endif %}
+							onchange="setCloseMixingValveFlag()"
+							{% if current_user.username != 'admin' %} disabled {% endif %}>
+					</label>
+				</td>
+				<td></td>
+			</tr>
         </table>
     </section>
 	
@@ -1124,6 +1140,30 @@ function uploadDb() {
     })
     .finally(() => {
         input.value = '';
+    });
+}
+
+function setCloseMixingValveFlag() {
+    const checkbox = document.getElementById('close_mixing_valve_flag');
+    const value = checkbox.checked ? '1' : '0';
+
+    fetch('/set_parameter_value', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json;charset=UTF-8'},
+        body: JSON.stringify({
+            parameter: 'Закрывать клапан перемешивания на время работы растворного узла',
+            value: value
+        })
+    })
+    .then(r => {
+        if (!r.ok) {
+            checkbox.checked = !checkbox.checked;
+            alert('Ошибка при сохранении параметра.');
+        }
+    })
+    .catch(() => {
+        checkbox.checked = !checkbox.checked;
+        alert('Сетевая ошибка при сохранении параметра.');
     });
 }
 </script>

@@ -1,6 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Спец вариант: на время открытия клапанов растворного узла закрывается клапан перемешивания
-# Для мини-фермы с растворным узлом на клапанах, управляемых WB-MR6C                          
+# sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
 import os
 import time
@@ -105,6 +104,7 @@ CRITICAL_LINKS = [
 ]
 
 STIRRER_PARAM = "Перемешивание"
+CLOSE_STIRRER_DURING_FEED_PARAM = "Закрывать клапан перемешивания на время работы растворного узла"
 FEED_RELAYS = [
     "Подача А в бак",
     "Подача В в бак",
@@ -303,6 +303,16 @@ def update_parameter_value(name: str, value: str):
     p.value = value
     p.value_date = datetime.now()
     session.commit()
+    
+def should_close_stirrer_during_feed() -> bool:
+    try:
+        return float(get_parameter_value(CLOSE_STIRRER_DURING_FEED_PARAM) or 0) > 0
+    except Exception as e:
+        logger.warning(
+            f"Параметр '{CLOSE_STIRRER_DURING_FEED_PARAM}' не найден или некорректен — "
+            f"клапан перемешивания не будет закрываться. Ошибка: {e}"
+        )
+        return False
     
 def update_text_parameter(name: str, value: str):
     p = session.query(Parameter).filter_by(controlled_parameter_name=name).first()
@@ -780,12 +790,16 @@ def set_parameter_and_sync(param: Parameter, value: float) -> bool:
 
 def _manage_stirrer_direct():
     """
-    Если открыт хотя бы один дозирующий клапан -> Перемешивание = 0
-    Если все дозирующие клапаны закрыты       -> Перемешивание = 1
+    Если настройка включена:
+      Если открыт хотя бы один дозирующий клапан -> Перемешивание = 0
+      Если все дозирующие клапаны закрыты       -> Перемешивание = 1
 
-    Управление идет напрямую в устройство, без косвенной логики через обычный sync.
+    Если настройка выключена — перемешивание не трогаем.
     """
     try:
+        if not should_close_stirrer_during_feed():
+            return
+
         stirrer = get_parameter(STIRRER_PARAM)
 
         any_running = any(
@@ -1087,9 +1101,16 @@ def handle_feed_timers(params_dict: dict):
         lines = ["Начало цикла регулирования."]
 
         if mix_state["expected_ec"] == 0:
-            lines.append(
-                f"Требуемый EC = {mp.target_ec:.1f}, текущий EC = {curr_ec:.1f} — регулирование по EC не требуется."
-            )
+            if curr_ec > mp.target_ec + mp.ec_deviation:
+                lines.append(
+                    f"Требуемый EC = {mp.target_ec:.1f}, текущий EC = {curr_ec:.1f} — "
+                    f"EC выше заданного, подача A/B невозможна. Требуется разбавление."
+                )
+            else:
+                lines.append(
+                    f"Требуемый EC = {mp.target_ec:.1f}, текущий EC = {curr_ec:.1f} — "
+                    f"EC в пределах допуска, регулирование по EC не требуется."
+                )
         else:
             lines.append(
                 f"Требуемый EC = {mp.target_ec:.1f}, текущий EC = {curr_ec:.1f}, "
@@ -1102,9 +1123,16 @@ def handle_feed_timers(params_dict: dict):
             )
 
         if mix_state["expected_ph"] == 0:
-            lines.append(
-                f"Требуемый pH = {mp.target_ph:.1f}, текущий pH = {curr_ph:.1f} — регулирование по pH не требуется."
-            )
+            if curr_ph < mp.target_ph - mp.ph_deviation:
+                lines.append(
+                    f"Требуемый pH = {mp.target_ph:.1f}, текущий pH = {curr_ph:.1f} — "
+                    f"pH ниже заданного, подача кислоты невозможна. Требуется повышение pH."
+                )
+            else:
+                lines.append(
+                    f"Требуемый pH = {mp.target_ph:.1f}, текущий pH = {curr_ph:.1f} — "
+                    f"pH в пределах допуска, регулирование по pH не требуется."
+                )
         else:
             lines.append(
                 f"Требуемый pH = {mp.target_ph:.1f}, текущий pH = {curr_ph:.1f}, "
@@ -1130,11 +1158,10 @@ def handle_feed_timers(params_dict: dict):
         if rem > 0 and timer_name not in feed_started_flags:
             logger.info(f"[feed] Подготовка к запуску {relay_name}, остаток {rem * 0.1:.1f}s")
 
-            # 1. сначала закрываем перемешивание
-            set_parameter_and_sync(stirrer_param, 0)
-
-            # 2. потом открываем нужный клапан
+            if should_close_stirrer_during_feed():
+                set_parameter_and_sync(stirrer_param, 0)
             set_parameter_and_sync(relay_param, 1)
+                
             feed_started_flags.add(timer_name)
 
         if rem > 0:
@@ -1156,7 +1183,7 @@ def handle_feed_timers(params_dict: dict):
         return new
 
     sequence = [
-        ("A", "expected_ec", insert_density_record, "Время подачи А в бак", "Подача А в бак"),
+        ("A", "expected_ec", insert_density_record, "Время подачи A в бак", "Подача А в бак"),
         ("В", "expected_ec", insert_density_record, "Время подачи В в бак", "Подача В в бак"),
         ("кислоты", "expected_ph", insert_buffer_capacity_record, "Время подачи кислоты в бак", "Подача кислоты в бак"),
     ]
@@ -1208,7 +1235,7 @@ def handle_feed_timers(params_dict: dict):
                 )
 
             if mix_state["expected_ph"] == 0:
-                lines.append("Регулирование по pH не выполнялось.")
+                lines.append("Регулирование по pH кислотой не выполнялось.")
             else:
                 curr_ph = float(get_parameter_value("Уровень PH") or 0)
                 actual_ph_change = mix_state["prev_ph"] - curr_ph

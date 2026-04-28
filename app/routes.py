@@ -1343,7 +1343,7 @@ def mixing_parameters():
 
     wifi_client = None
     conf_path = "/etc/smart-wifi/wifi.conf"
-    wifi_available = os.path.exists("/etc/smart-wifi/wifi.conf")
+    wifi_available = os.path.exists(conf_path)
 
     if os.path.exists(conf_path):
         wifi_conf = read_wifi_conf(conf_path)
@@ -1355,6 +1355,18 @@ def mixing_parameters():
             "sta_hidden": wifi_conf.get("STA_HIDDEN", "0") == "1",
         }
 
+    parameters_dict = {}
+    for p in Parameter.query.all():
+        key = p.controlled_parameter_name
+        value = p.value
+
+        if isinstance(key, bytes):
+            key = key.decode("utf-8")
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+
+        parameters_dict[key] = value
+        
     return render_template(
         'mixing_parameters.html',
         mixing_params=mixing_params,
@@ -1365,6 +1377,7 @@ def mixing_parameters():
         modem_config=read_modem_config() or {},
         firmware_versions=read_firmware_versions(),
         traffic_stats=read_traffic_stats(),
+        parameters_dict=parameters_dict,
         title='Параметры'
        )
 

@@ -1,5 +1,5 @@
-# migrate_scenario_cycles.py
 # Миграционный скрипт БД для правок под новый конструктор сценариев. 27.04.2026
+# Положить в каталог с .db и выполнить: python3 migrate_scenario_cycles.py
 
 import sqlite3
 from pathlib import Path
