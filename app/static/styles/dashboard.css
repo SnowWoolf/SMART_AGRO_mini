@@ -1425,3 +1425,54 @@ body.no-scroll{ overflow: hidden; }
         position: static;
     }
 }
+
+@media (max-width: 700px) {
+    .constructor-table thead {
+        display: none;
+    }
+
+    .constructor-table,
+    .constructor-table tbody,
+    .constructor-table tr,
+    .constructor-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .constructor-table tr {
+        margin-bottom: 14px;
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #fff;
+    }
+
+    .constructor-table td {
+        border: none;
+        padding: 8px 0;
+    }
+
+    .constructor-table td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #6b7280;
+    }
+
+    .delay-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .step-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .step-actions .btn {
+        width: 100%;
+    }
+}

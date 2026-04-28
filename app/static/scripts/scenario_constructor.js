@@ -165,47 +165,47 @@ function renderSteps() {
         }).join('');
 
         tr.innerHTML = `
-            <td>${index + 1}</td>
+    <td data-label="№">${index + 1}</td>
 
-            <td>
-                <div class="delay-grid">
-                    <input type="number" class="form-control"
-                           min="0" max="23"
-                           value="${Math.floor((step.delay_sec || 0) / 3600)}"
-                           onchange="updateStepDelayPart(${index}, 'h', this.value)">
-                    <input type="number" class="form-control"
-                           min="0" max="59"
-                           value="${Math.floor(((step.delay_sec || 0) % 3600) / 60)}"
-                           onchange="updateStepDelayPart(${index}, 'm', this.value)">
-                    <input type="number" class="form-control"
-                           min="0" max="59"
-                           value="${(step.delay_sec || 0) % 60}"
-                           onchange="updateStepDelayPart(${index}, 's', this.value)">
-                </div>
-                <div class="delay-caption">часы / минуты / секунды</div>
-            </td>
+    <td data-label="Задержка">
+        <div class="delay-grid">
+            <input type="number" class="form-control"
+                   min="0" max="23"
+                   value="${Math.floor((step.delay_sec || 0) / 3600)}"
+                   onchange="updateStepDelayPart(${index}, 'h', this.value)">
+            <input type="number" class="form-control"
+                   min="0" max="59"
+                   value="${Math.floor(((step.delay_sec || 0) % 3600) / 60)}"
+                   onchange="updateStepDelayPart(${index}, 'm', this.value)">
+            <input type="number" class="form-control"
+                   min="0" max="59"
+                   value="${(step.delay_sec || 0) % 60}"
+                   onchange="updateStepDelayPart(${index}, 's', this.value)">
+        </div>
+        <div class="delay-caption">часы / минуты / секунды</div>
+    </td>
 
-            <td>
-                <select class="form-control" onchange="updateStepParameter(${index}, this.value)">
-                    ${parameterOptions}
-                </select>
-            </td>
+    <td data-label="Параметр">
+        <select class="form-control" onchange="updateStepParameter(${index}, this.value)">
+            ${parameterOptions}
+        </select>
+    </td>
 
-            <td>
-                ${renderValueEditor(step, index)}
-            </td>
+    <td data-label="Значение">
+        ${renderValueEditor(step, index)}
+    </td>
 
-           <td>
-				${isAdmin ? `
-					<div class="step-actions">
-						<button class="btn" onclick="moveStepUp(${index})" ${index === 0 ? 'disabled' : ''}>↑</button>
-						<button class="btn" onclick="moveStepDown(${index})" ${index === currentSteps.length - 1 ? 'disabled' : ''}>↓</button>
-						<button class="btn" onclick="duplicateStep(${index})">Копия</button>
-						<button class="btn btn-danger" onclick="removeStep(${index})">Удалить</button>
-					</div>
-				` : ''}
-			</td>
-        `;
+    <td data-label="Действия">
+        ${isAdmin ? `
+            <div class="step-actions">
+                <button class="btn" onclick="moveStepUp(${index})" ${index === 0 ? 'disabled' : ''}>↑</button>
+                <button class="btn" onclick="moveStepDown(${index})" ${index === currentSteps.length - 1 ? 'disabled' : ''}>↓</button>
+                <button class="btn" onclick="duplicateStep(${index})">Копия</button>
+                <button class="btn btn-danger" onclick="removeStep(${index})">Удалить</button>
+            </div>
+        ` : ''}
+    </td>
+`;
 
         tbody.appendChild(tr);
     });
