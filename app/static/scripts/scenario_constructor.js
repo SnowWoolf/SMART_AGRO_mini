@@ -581,6 +581,8 @@ function renderDayVisualization() {
             drawIntervalArc(svg, interval.start, interval.end, item.color, cycleIndex);
         });
     });
+	
+	drawCurrentTimeArrow(svg);
 
     prepared.forEach(item => {
         const row = document.createElement('div');
@@ -653,8 +655,8 @@ function getCycleDurationSec(steps) {
 }
 
 function drawDayBase(svg) {
-    const cx = 130;
-    const cy = 130;
+    const cx = 150;
+    const cy = 150;
 
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     bg.setAttribute('cx', cx);
@@ -668,19 +670,20 @@ function drawDayBase(svg) {
     const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     inner.setAttribute('cx', cx);
     inner.setAttribute('cy', cy);
-    inner.setAttribute('r', 62);
+    inner.setAttribute('r', 60);
     inner.setAttribute('fill', '#ffffff');
     svg.appendChild(inner);
 
-    drawTimeLabel(svg, '00:00', 130, 32);
-    drawTimeLabel(svg, '06:00', 225, 134);
-    drawTimeLabel(svg, '12:00', 130, 238);
-    drawTimeLabel(svg, '18:00', 35, 134);
+    const labelRadius = 124;
+	drawTimeLabelAtAngle(svg, '00:00', 0, labelRadius);
+	drawTimeLabelAtAngle(svg, '06:00', 90, labelRadius);
+	drawTimeLabelAtAngle(svg, '12:00', 180, labelRadius);
+	drawTimeLabelAtAngle(svg, '18:00', 270, labelRadius);
 
     for (let h = 0; h < 24; h++) {
         const angle = secToAngle(h * 3600);
-        const p1 = polarToXY(cx, cy, 96, angle);
-        const p2 = polarToXY(cx, cy, h % 6 === 0 ? 106 : 101, angle);
+        const p1 = polarToXY(cx, cy, 99, angle);
+        const p2 = polarToXY(cx, cy, h % 6 === 0 ? 112 : 106, angle);
 
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.setAttribute('x1', p1.x);
@@ -717,8 +720,8 @@ function drawIntervalArc(svg, startSec, endSec, color, layerIndex) {
 function drawArcPart(svg, startSec, endSec, color, layerIndex) {
     if (endSec <= startSec) return;
 
-    const cx = 130;
-    const cy = 130;
+    const cx = 150;
+    const cy = 150;
     const r = 82;
     const day = 86400;
     const circumference = 2 * Math.PI * r;
@@ -753,6 +756,45 @@ function drawTimeLabel(svg, text, x, y) {
     label.setAttribute('font-size', '13');
     label.setAttribute('fill', '#374151');
     label.textContent = text;
+    svg.appendChild(label);
+}
+
+function drawCurrentTimeArrow(svg) {
+    const now = new Date();
+
+    const sec =
+        now.getHours() * 3600 +
+        now.getMinutes() * 60 +
+        now.getSeconds();
+
+    const cx = 150;
+    const cy = 150;
+    const angle = secToAngle(sec);
+
+    // черта пересекает кольцо: от внутреннего края к внешнему
+    const p1 = polarToXY(cx, cy, 62, angle);
+    const p2 = polarToXY(cx, cy, 104, angle);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', p1.x);
+    line.setAttribute('y1', p1.y);
+    line.setAttribute('x2', p2.x);
+    line.setAttribute('y2', p2.y);
+    line.setAttribute('stroke', '#334155');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(line);
+
+    const labelPoint = polarToXY(cx, cy, 48, angle - 12);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', labelPoint.x);
+    label.setAttribute('y', labelPoint.y);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('font-size', '11');
+    label.setAttribute('font-weight', '700');
+    label.setAttribute('fill', '#111827');
+    label.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     svg.appendChild(label);
 }
 
@@ -804,6 +846,56 @@ function updateToastOffset() {
 
     const rect = header.getBoundingClientRect();
     container.style.top = (rect.height + 12) + 'px';
+}
+
+function duplicateCycle() {
+    if (!currentCycle) {
+        showToast('Нет цикла для копирования', 'error');
+        return;
+    }
+
+    // создаём копию
+    const copy = JSON.parse(JSON.stringify(currentCycle));
+
+    copy.id = null;
+    copy.name = copy.name + ' (копия)';
+
+    currentCycle = copy;
+    currentSteps = JSON.parse(JSON.stringify(copy.steps || []));
+
+    document.getElementById('editor-title').innerText = 'Копия цикла';
+    document.getElementById('cycle-id').value = '';
+    document.getElementById('cycle-name').value = copy.name;
+    document.getElementById('cycle-type').value = copy.cycle_type;
+    document.getElementById('cycle-enabled').value = copy.enabled ? '1' : '0';
+    document.getElementById('cycle-first-time').value = copy.first_time;
+
+    setPeriodInputs(copy.period_minutes);
+
+    renderSteps();
+    updatePreview();
+    setDirty(true);
+
+    showToast('Цикл скопирован');
+}
+
+function drawTimeLabelAtAngle(svg, text, angleDeg, radius) {
+    const cx = 150;
+    const cy = 150;
+
+    const angle = angleDeg - 90;
+    const p = polarToXY(cx, cy, radius, angle);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', p.x);
+    label.setAttribute('y', p.y);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('dominant-baseline', 'middle');
+    label.setAttribute('font-size', '13');
+    label.setAttribute('fill', '#374151');
+
+    label.textContent = text;
+    svg.appendChild(label);
 }
 
 window.addEventListener('load', updateToastOffset);

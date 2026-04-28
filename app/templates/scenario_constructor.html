@@ -29,7 +29,7 @@
 		<h2>Визуализация суточного цикла</h2>
 
 		<div class="cycle-day-wrap">
-			<svg id="cycle-day-svg" viewBox="0 0 260 260" class="cycle-day-svg"></svg>
+			<svg id="cycle-day-svg" viewBox="0 0 300 300" class="cycle-day-svg"></svg>
 		</div>
 
 		<div id="cycle-day-legend" class="cycle-day-legend">
@@ -56,6 +56,7 @@
           {% if is_admin_user %}
             <div class="constructor-actions">
               <button class="btn" onclick="newCycle()">+ Новый</button>
+			  <button class="btn" onclick="duplicateCycle()">Копировать</button>
               <button class="btn btn-primary" onclick="saveCycle()">Сохранить цикл</button>
               <button class="btn btn-danger" onclick="deleteCurrentCycle()">Удалить цикл</button>
             </div>
