@@ -8,4 +8,3 @@ werkzeug
 flask_sqlalchemy
 flask_wtf
 waitress
-opencv-python-headless
