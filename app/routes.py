@@ -2485,3 +2485,33 @@ def import_db():
     return jsonify({
         "message": "БД успешно загружена. Веб-сервис перезапущен. Обновите страницу через 1 минуту."
     }), 200
+    
+@bp.route('/get_logs')
+@login_required
+def get_logs():
+    logs_info = (
+        Log.query
+        .filter(Log.level == 'INFO')
+        .order_by(Log.timestamp.desc())
+        .limit(30)
+        .all()
+    )
+
+    logs_errors = (
+        Log.query
+        .filter(Log.level.in_(['ERROR', 'CRITICAL', 'WARNING']))
+        .order_by(Log.timestamp.desc())
+        .limit(30)
+        .all()
+    )
+
+    def serialize_log(log):
+        return {
+            'timestamp': log.timestamp.strftime('%d.%m.%Y %H:%M:%S'),
+            'message': log.message
+        }
+
+    return jsonify({
+        'info': [serialize_log(log) for log in logs_info],
+        'errors': [serialize_log(log) for log in logs_errors]
+    })

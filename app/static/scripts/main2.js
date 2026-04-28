@@ -1,4 +1,4 @@
-// C:\PyCharmProjects\agrosmart ЗОНА 3\Зона 3\app\static\scripts\main2.js
+// файл \app\static\scripts\main2.js
 
 
 // нормализуем "включено": сервер может прислать '1', '1.0' или 1
@@ -230,4 +230,42 @@ if (brightnessInput) {
     });
 }
 
+function renderLogs(boxId, logs, emptyText) {
+    const box = document.getElementById(boxId);
+    if (!box) return;
+
+    if (!logs || logs.length === 0) {
+        box.innerHTML = `<div class="caption">${emptyText}</div>`;
+        return;
+    }
+
+    const items = logs.map(log => `
+        <li>
+            <span class="log-time">${log.timestamp}</span>
+            <span>${log.message}</span>
+        </li>
+    `).join('');
+
+    box.innerHTML = `<ul class="log-list">${items}</ul>`;
+}
+
+async function updateLogs() {
+    try {
+        const response = await fetch(getLogsUrl);
+        const data = await response.json();
+
+        renderLogs('logsInfoBox', data.info, 'Нет информационных сообщений.');
+        renderLogs('logsErrorsBox', data.errors, 'Нет аварийных сообщений.');
+
+    } catch (error) {
+        console.error("Ошибка обновления логов:", error);
+    }
+}
+
+updateData();
+updateLogs();
+
 setInterval(updateData, 1000);
+setInterval(updateLogs, 5000);
+
+

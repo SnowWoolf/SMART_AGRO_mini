@@ -101,7 +101,7 @@
           <table class="table">
             <thead><tr><th>Подача</th><th>Статус</th><th>Время</th></tr></thead>
             <tbody>
-              <tr><td>А для EC</td><td id="statusA">откл</td><td id="timeA">{{ parameters_dict['Время подачи А в бак'] }}</td></tr>
+              <tr><td>А для EC</td><td id="statusA">откл</td><td id="timeA">{{ parameters_dict['Время подачи A в бак'] }}</td></tr>
               <tr><td>В для EC</td><td id="statusB">откл</td><td id="timeB">{{ parameters_dict['Время подачи В в бак'] }}</td></tr>
               <tr><td>Кислота для PH</td><td id="statusK">откл</td><td id="timeK">{{ parameters_dict['Время подачи К в бак'] }}</td></tr>
             </tbody>
@@ -319,7 +319,7 @@
     <div class="logs">
       <div class="card log-box">
         <h2>Информация о событиях фермы</h2>
-        <div class="log-scroll">
+        <div class="log-scroll" id="logsInfoBox">
           {% if logs_info %}
             <ul class="log-list">
               {% for log in logs_info %}
@@ -337,7 +337,7 @@
 
       <div class="card log-box">
         <h2>Аварийные события</h2>
-        <div class="log-scroll">
+        <div class="log-scroll" id="logsErrorsBox">
           {% if logs_errors %}
             <ul class="log-list">
               {% for log in logs_errors %}
@@ -361,14 +361,15 @@
   const getParametersUrl = "{{ url_for('main.get_parameters') }}";
   const toggleParameterUrl = "{{ url_for('main.toggle_parameter') }}";
   const setParameterValueUrl = "{{ url_for('main.set_parameter_value') }}";
-  const camLatestInfoUrl   = "{{ url_for('main.camera_latest_info') }}";
-  const camLatestJpgUrl    = "{{ url_for('main.camera_latest_jpg') }}";
-  const camDownloadLatest  = "{{ url_for('main.camera_download_latest') }}";
-  const camCaptureNowUrl   = "{{ url_for('main.camera_capture_now') }}";
-  const camImageAtUrl      = "{{ url_for('main.camera_image_at') }}";
-  const camDownloadAtUrl   = "{{ url_for('main.camera_download_at') }}";
-  const camTimelapseUrl    = "{{ url_for('main.camera_timelapse_mp4') }}";
+  const getLogsUrl = "{{ url_for('main.get_logs') }}";
+// const camLatestInfoUrl   = "{{ url_for('main.camera_latest_info') }}";
+// const camLatestJpgUrl    = "{{ url_for('main.camera_latest_jpg') }}";
+// const camDownloadLatest  = "{{ url_for('main.camera_download_latest') }}";
+// const camCaptureNowUrl   = "{{ url_for('main.camera_capture_now') }}";
+// const camImageAtUrl      = "{{ url_for('main.camera_image_at') }}";
+// const camDownloadAtUrl   = "{{ url_for('main.camera_download_at') }}";
+// const camTimelapseUrl    = "{{ url_for('main.camera_timelapse_mp4') }}";
 </script>
 <script src="{{ url_for('static', filename='scripts/main2.js') }}"></script>
-<script src="{{ url_for('static', filename='scripts/camera.js') }}"></script>
+{# <script src="{{ url_for('static', filename='scripts/camera.js') }}"></script> #}
 {% endblock %}
