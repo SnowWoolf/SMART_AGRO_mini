@@ -438,7 +438,7 @@ def get_gsm_status_state():
     if not modem_state:
         return {
             "connected": False,
-            "text": "Модем не обнаружен или нет данных"
+            "text": "Нет связи или SIM-карта не вставлена"
         }
 
     gsm_ip = modem_state.get("ipaddr", "")
@@ -1522,9 +1522,16 @@ def run_sync():
             for p in session.query(Parameter).all()
         )
 
+        wifi_text = get_wifi_client_status()
+        gsm_state = get_gsm_status_state()
+        gsm_text = gsm_state["text"]
+
         insert_log_message(
             f"Запуск синхронизации: {now_str}\n"
             f"Последняя активность: {last_str}\n"
+            f"Сеть:\n"
+            f"WiFi: {wifi_text}\n"
+            f"GSM: {gsm_text}\n"
             f"Состояние:\n{snap}",
             "INFO"
         )
