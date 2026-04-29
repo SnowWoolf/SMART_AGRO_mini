@@ -1365,6 +1365,7 @@ def set_parameter_value():
     parameter = Parameter.query.filter_by(controlled_parameter_name=parameter_name).first()
     if parameter:
         parameter.value = parameter_value
+        parameter.value_date = datetime.now()
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False), 400

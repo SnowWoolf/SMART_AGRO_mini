@@ -79,7 +79,7 @@ previous_maintenance_mode   = None
 last_critical_links     = {}
 _prev_water_flow        = None
 _prev_total_volume      = None
-pending_change_sources = {}  # param.id -> "WEB" / "Сценарий" / "SYSTEM"
+pending_change_sources = {}  # param.id -> {"source": str, "value": float, "value_date": datetime}
 
 mix_state = {
     "mix_start":   None,
@@ -612,6 +612,48 @@ def format_value(param: Parameter, raw_val: str) -> str:
     except Exception:
         return str(raw_val)
 
+
+def remember_pending_change_source(param: Parameter, source: str):
+    try:
+        target_value = float(param.value or 0)
+    except Exception:
+        target_value = None
+
+    pending_change_sources[param.id] = {
+        "source": source,
+        "value": target_value,
+        "value_date": param.value_date,
+    }
+
+
+def consume_pending_change_source(param: Parameter, current_value: float) -> str:
+    entry = pending_change_sources.get(param.id)
+    if not entry:
+        return "WEB"
+
+    if not isinstance(entry, dict):
+        pending_change_sources.pop(param.id, None)
+        return str(entry or "WEB")
+
+    expected_value = entry.get("value")
+    expected_date = entry.get("value_date")
+
+    value_matches = False
+    if expected_value is not None:
+        try:
+            value_matches = abs(float(expected_value) - float(current_value)) < 1e-9
+        except Exception:
+            value_matches = False
+
+    date_matches = expected_date is None or param.value_date == expected_date
+
+    if value_matches and date_matches:
+        pending_change_sources.pop(param.id, None)
+        return entry.get("source") or "WEB"
+
+    pending_change_sources.pop(param.id, None)
+    return "WEB"
+
 # Отбор сообщений для отправки в мессенджер
 def should_send_to_max(level: str, msg: str) -> bool:
     return (
@@ -971,7 +1013,7 @@ def execute_scenarios():
             p.value_date = datetime.now().replace(second=0, microsecond=0)
             session.commit()
 
-            pending_change_sources[p.id] = "Сценарий"
+            remember_pending_change_source(p, "Сценарий")
 
             p_ph = session.query(Parameter).filter_by(controlled_parameter_name="Уровень PH").first()
             p_ec = session.query(Parameter).filter_by(controlled_parameter_name="Уровень EC").first()
@@ -1457,7 +1499,7 @@ def poll_parameters():
             if db_raw_f != prev_db_f and dev_raw_f == prev_dev_f:
                 ok = write_parameter_value(p, db_raw_f)
                 if ok:
-                    source = pending_change_sources.pop(p.id, "WEB")
+                    source = consume_pending_change_source(p, db_raw_f)
 
                     try:
                         p_ph = params_dict.get("Уровень PH")
