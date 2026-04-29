@@ -393,7 +393,7 @@ def get_wifi_client_status() -> str:
             ip_addr = status.get("ip_address")
             if ip_addr:
                 return f"Подключен, получен IP:  {ip_addr}"
-            return "Подключен, но IP-адрес не получен. Перезагрузите устройство"
+            return "Подключен, но IP-адрес не получен. Перезапуск сервиса.."
 
         return "Сеть не подключена"
 
@@ -612,7 +612,13 @@ def format_value(param: Parameter, raw_val: str) -> str:
     except Exception:
         return str(raw_val)
 
+def should_send_to_max(level: str, msg: str) -> bool:
+    is_alarm = level in ("ERROR", "CRITICAL")
+    has_ip = "IP" in msg or "ip" in msg
+    is_regulation_result = msg.startswith("По завершении цикла регулирования получили:")
 
+    return is_alarm or has_ip or is_regulation_result
+    
 def _max_dispatcher():
     """
     Каждые MAX_BATCH_INTERVAL секунд забираем всю очередь
@@ -626,10 +632,7 @@ def _max_dispatcher():
             try:
                 level, msg = notify_queue.get_nowait()
 
-                is_alarm = level in ("ERROR", "CRITICAL")
-                has_ip = "IP" in msg or "ip" in msg
-
-                if is_alarm or has_ip:
+                if should_send_to_max(level, msg):
                     batch.append((level, msg))
 
             except queue.Empty:
