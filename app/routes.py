@@ -24,6 +24,7 @@ IP_BIN = "/sbin/ip"
 MODEM_CONF_PATH = "/etc/uspd/modem/uspd-modem.conf"
 MODEM_SIM_PRIO_PATH = "/etc/uspd/modem/uspd-sim-prio.conf"
 MODEM_INFO_PATH = "/run/uspd/modem/modem.info"
+ETHERNET_INTERFACES_PATH = "/etc/network/interfaces"
 TRAFFIC_STATS_PATH = "/var/lib/agrosmart/traffic_stats.json"
 TRAFFIC_POLL_INTERVAL_SEC = 300
 _traffic_timer_started = False
@@ -69,7 +70,8 @@ VERSION_FILE_PATH = Path(__file__).resolve().parent.parent / "version"
 def read_firmware_versions():
     result = {
         "software": "Версия ПО не указана",
-        "database": DB_NAME
+        "database": DB_NAME,
+        "ui": read_ui_version()
     }
 
     try:
@@ -86,6 +88,29 @@ def read_firmware_versions():
         pass
 
     return result
+    
+MAIN_TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "main.html"
+
+def read_ui_version():
+    try:
+        if not MAIN_TEMPLATE_PATH.exists():
+            return "unknown"
+
+        with open(MAIN_TEMPLATE_PATH, "r", encoding="utf-8") as f:
+            first_line = f.readline().strip()
+
+        if "UI_VERSION:" in first_line:
+            value = first_line.split("UI_VERSION:", 1)[1].strip()
+
+            # убираем закрытие комментария
+            value = value.replace("-->", "").strip()
+
+            return value
+
+    except Exception:
+        pass
+
+    return "unknown"
 
 # === Настройка WiFi-клиента: функции ===
 def read_wifi_conf(path="/etc/smart-wifi/wifi.conf"):
@@ -194,6 +219,121 @@ def get_wifi_client_status() -> str:
     except Exception as e:
         print("get_wifi_client_status EXCEPTION:", repr(e))
         return "Адаптер не обнаружен"
+        
+_system_monitor_last_errors = {}
+
+
+def _log_system_error_once(key, message, cooldown_sec=300):
+    now = time.time()
+    last = _system_monitor_last_errors.get(key, 0)
+
+    if now - last < cooldown_sec:
+        return
+
+    _system_monitor_last_errors[key] = now
+
+    try:
+        db.session.add(Log(
+            timestamp=datetime.now(),
+            level="ERROR",
+            message=message
+        ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def get_disk_usage_percent(path="/"):
+    try:
+        usage = shutil.disk_usage(path)
+        return round((usage.used / usage.total) * 100, 1)
+    except Exception:
+        return None
+
+def get_ram_usage_percent():
+    try:
+        data = {}
+
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                key, value = line.split(":", 1)
+                data[key] = int(value.strip().split()[0])
+
+        total = data.get("MemTotal")
+        available = data.get("MemAvailable")
+
+        if not total or available is None:
+            return None
+
+        used = total - available
+        return round((used / total) * 100, 1)
+
+    except Exception:
+        return None
+
+def get_cpu_temperature():
+    paths = [
+        "/sys/class/thermal/thermal_zone0/temp",
+        "/sys/class/hwmon/hwmon0/temp1_input",
+    ]
+
+    for path in paths:
+        try:
+            if not os.path.exists(path):
+                continue
+
+            with open(path, "r", encoding="utf-8") as f:
+                raw = f.read().strip()
+
+            value = float(raw)
+
+            if value > 1000:
+                value = value / 1000.0
+
+            return round(value, 1)
+
+        except Exception:
+            continue
+
+    return None
+
+def get_cpu_load_percent():
+    try:
+        load1, _, _ = os.getloadavg()
+        cpu_count = os.cpu_count() or 1
+        return round((load1 / cpu_count) * 100, 1)
+    except Exception:
+        return None
+
+def read_system_monitor():
+    disk_percent = get_disk_usage_percent("/")
+    ram_percent = get_ram_usage_percent()
+    cpu_temp = get_cpu_temperature()
+    cpu_load = get_cpu_load_percent()
+
+    if disk_percent is not None and disk_percent >= 90:
+        _log_system_error_once(
+            "disk_usage",
+            f"Загрузка постоянной памяти превышает 90%: {disk_percent}%"
+        )
+
+    if ram_percent is not None and ram_percent >= 90:
+        _log_system_error_once(
+            "ram_usage",
+            f"Загрузка оперативной памяти превышает 90%: {ram_percent}%"
+        )
+
+    return {
+        "disk_percent": disk_percent,
+        "ram_percent": ram_percent,
+        "cpu_temp": cpu_temp,
+        "cpu_load": cpu_load,
+    }
+    
+@bp.route('/system_monitor')
+@login_required
+def system_monitor():
+    return jsonify(read_system_monitor())
         
 def _read_iface_traffic_bytes(iface):
     base = f"/sys/class/net/{iface}/statistics"
@@ -1377,6 +1517,8 @@ def mixing_parameters():
         modem_config=read_modem_config() or {},
         firmware_versions=read_firmware_versions(),
         traffic_stats=read_traffic_stats(),
+        ethernet_config=read_ethernet_config(),
+        system_monitor=read_system_monitor(),
         parameters_dict=parameters_dict,
         title='Параметры'
        )
@@ -2157,6 +2299,117 @@ def restart_modem_service():
             "message": "Сервис модема перезапущен."
         }), 200
 
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+        
+def get_iface_ip(iface):
+    try:
+        result = subprocess.run(
+            [IP_BIN, "-4", "addr", "show", iface],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+
+        match = re.search(r"inet\s+([0-9.]+)/", result.stdout)
+        return match.group(1) if match else ""
+    except Exception:
+        return ""
+
+
+def read_ethernet_config():
+    result = {
+        "lan1": {"iface": "eth0", "mode": "dhcp", "ip": "", "netmask": "", "gateway": "", "dns": "", "current_ip": get_iface_ip("eth0")},
+        "lan2": {"iface": "eth1", "mode": "static", "ip": "192.168.0.1", "netmask": "255.255.255.0", "gateway": "", "dns": "", "current_ip": get_iface_ip("eth1")},
+    }
+
+    if not os.path.exists(ETHERNET_INTERFACES_PATH):
+        return result
+
+    current = None
+
+    try:
+        with open(ETHERNET_INTERFACES_PATH, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+
+                if line.startswith("iface eth0 inet"):
+                    current = "lan1"
+                    result[current]["mode"] = "dhcp" if "dhcp" in line else "static"
+
+                elif line.startswith("iface eth1 inet"):
+                    current = "lan2"
+                    result[current]["mode"] = "dhcp" if "dhcp" in line else "static"
+
+                elif current and line.startswith("address "):
+                    result[current]["ip"] = line.split(None, 1)[1]
+
+                elif current and line.startswith("netmask "):
+                    result[current]["netmask"] = line.split(None, 1)[1]
+
+                elif current and line.startswith("gateway "):
+                    result[current]["gateway"] = line.split(None, 1)[1]
+
+                elif current and line.startswith("dns-nameservers "):
+                    parts = line.split(None, 1)
+                    dns_raw = parts[1].strip() if len(parts) > 1 else ""
+                    result[current]["dns"] = dns_raw.split()[0] if dns_raw else ""
+
+    except Exception as e:
+        logger.warning("Не удалось прочитать Ethernet config: %s", e)
+
+    return result
+
+def write_ethernet_config(data):
+    def section(lan_key, iface):
+        cfg = data.get(lan_key, {})
+        mode = cfg.get("mode", "dhcp")
+
+        lines = [
+            f"auto {iface}",
+            f"iface {iface} inet {'dhcp' if mode == 'dhcp' else 'static'}"
+        ]
+
+        if mode == "static":
+            lines.append(f"    address {cfg.get('ip', '').strip()}")
+            lines.append(f"    netmask {cfg.get('netmask', '').strip()}")
+
+            gateway = cfg.get("gateway", "").strip()
+            dns = cfg.get("dns", "").strip()
+
+            if gateway:
+                lines.append(f"    gateway {gateway}")
+
+            if dns:
+                lines.append(f"    dns-nameservers {dns}")
+
+        metric = "0" if lan_key == "lan1" else "1"
+        lines.append(f"    metric {metric}")
+
+        return "\n".join(lines)
+
+    content = section("lan1", "eth0") + "\n\n" + section("lan2", "eth1") + "\n"
+
+    with open(ETHERNET_INTERFACES_PATH, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+@bp.route('/update_ethernet_settings', methods=['POST'])
+@login_required
+def update_ethernet_settings():
+    if current_user.username != "admin" and current_user.role != "admin":
+        return jsonify({"status": "error", "message": "Недостаточно прав"}), 403
+
+    data = request.get_json(silent=True) or {}
+
+    try:
+        write_ethernet_config(data)
+        return jsonify({
+            "status": "ok",
+            "message": "Настройки Ethernet записаны. Для применения перезагрузите устройство."
+        }), 200
     except Exception as e:
         return jsonify({
             "status": "error",

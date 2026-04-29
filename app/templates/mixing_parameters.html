@@ -85,20 +85,23 @@
                 </td>
             </tr>
 			<tr>
-				<th title="На время открытия клапанов растворного узла закрывается клапан перемешивания. Для растворных узлов на клапанах, управляемых WB-MR6C">
+				<th>
 					Отключать перемешивание при дозировании
 				</th>
-				<td>
-					<label style="display: inline-flex; align-items: center; gap: 8px;">
-						<input type="checkbox"
-							id="close_mixing_valve_flag"
-							title="На время открытия клапанов растворного узла закрывается клапан перемешивания. Для растворных узлов на клапанах, управляемых WB-MR6C"
-							{% if parameters_dict.get('Закрывать клапан перемешивания на время работы растворного узла') == '1' %}checked{% endif %}
-							onchange="setCloseMixingValveFlag()"
-							{% if current_user.username != 'admin' %} disabled {% endif %}>
-					</label>
+				<td id="close_mixing_valve_flag_text">
+					{% if parameters_dict.get('Закрывать клапан перемешивания на время работы растворного узла') == '1' %}
+						Да
+					{% else %}
+						Нет
+					{% endif %}
 				</td>
-				<td></td>
+				<td>
+					<button class="btn btn-primary"
+							onclick="openCloseMixingValveModal()"
+							{% if current_user.username != 'admin' %} disabled {% endif %}>
+						Изменить
+					</button>
+				</td>
 			</tr>
         </table>
     </section>
@@ -616,6 +619,73 @@
 </section>
 
 <section class="card">
+    <h2>Настройки Ethernet</h2>
+
+    <div class="modem-settings-grid">
+
+        <div class="modem-settings-group">
+            <h3>LAN2 (Основной)</h3>
+
+            <label class="modem-row">
+                <span>Режим</span>
+                <select id="lan2_mode" class="form-control" onchange="updateEthernetModeView('lan2')" {% if current_user.username != 'admin' %} disabled {% endif %}>
+                    <option value="dhcp" {% if ethernet_config.lan2.mode == 'dhcp' %}selected{% endif %}>DHCP</option>
+                    <option value="static" {% if ethernet_config.lan2.mode == 'static' %}selected{% endif %}>Вручную</option>
+                </select>
+            </label>
+
+            <div id="lan2_dhcp_block">
+                <label class="modem-row">
+                    <span>Полученный IP</span>
+                    <input type="text" class="form-control" value="{{ ethernet_config.lan2.current_ip or '—' }}" disabled>
+                </label>
+            </div>
+
+            <div id="lan2_static_block">
+                <label class="modem-row"><span>IP-адрес</span><input type="text" id="lan2_ip" class="form-control" value="{{ ethernet_config.lan2.ip }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+                <label class="modem-row"><span>Маска</span><input type="text" id="lan2_netmask" class="form-control" value="{{ ethernet_config.lan2.netmask }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+                <label class="modem-row"><span>Шлюз</span><input type="text" id="lan2_gateway" class="form-control" value="{{ ethernet_config.lan2.gateway }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+                <label class="modem-row"><span>DNS</span><input type="text" id="lan2_dns" class="form-control" value="{{ ethernet_config.lan2.dns }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+            </div>
+        </div>
+		<div class="modem-settings-group">
+            <h3>LAN1 (Диагностический)</h3>
+
+            <label class="modem-row">
+                <span>Режим</span>
+                <select id="lan1_mode" class="form-control" onchange="updateEthernetModeView('lan1')" {% if current_user.username != 'admin' %} disabled {% endif %}>
+                    <option value="dhcp" {% if ethernet_config.lan1.mode == 'dhcp' %}selected{% endif %}>DHCP</option>
+                    <option value="static" {% if ethernet_config.lan1.mode == 'static' %}selected{% endif %}>Вручную</option>
+                </select>
+            </label>
+
+            <div id="lan1_dhcp_block">
+                <label class="modem-row">
+                    <span>Полученный IP</span>
+                    <input type="text" class="form-control" value="{{ ethernet_config.lan1.current_ip or '—' }}" disabled>
+                </label>
+            </div>
+
+            <div id="lan1_static_block">
+                <label class="modem-row"><span>IP-адрес</span><input type="text" id="lan1_ip" class="form-control" value="{{ ethernet_config.lan1.ip }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+                <label class="modem-row"><span>Маска</span><input type="text" id="lan1_netmask" class="form-control" value="{{ ethernet_config.lan1.netmask }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+                <label class="modem-row"><span>Шлюз</span><input type="text" id="lan1_gateway" class="form-control" value="{{ ethernet_config.lan1.gateway }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+                <label class="modem-row"><span>DNS</span><input type="text" id="lan1_dns" class="form-control" value="{{ ethernet_config.lan1.dns }}" {% if current_user.username != 'admin' %} disabled {% endif %}></label>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="margin-top: 16px;">
+        <button class="btn btn-primary"
+				onclick="saveEthernetSettings()"
+				{% if current_user.username != 'admin' %} disabled {% endif %}>
+			Сохранить
+		</button>
+    </div>
+</section>
+
+<section class="card">
     <h2>Расход трафика</h2>
 
     <div class="traffic-list">
@@ -646,7 +716,10 @@
         <span>Версия ПО</span>
         <strong>{{ firmware_versions.software }}</strong>
     </div>
-
+	<div class="device-version-row">
+        <span>Версия интерфейса</span>
+        <strong>{{ firmware_versions.ui }}</strong>
+    </div>
     <div class="device-version-row">
         <span>Версия БД</span>
         <strong>{{ firmware_versions.database }}</strong>
@@ -683,6 +756,33 @@
             Импорт БД
         </button>
     </div>
+</section>
+
+<section class="card">
+    <h3>Мониторинг системы</h3>
+
+    <table class="table--compact">
+        <tr>
+            <th>Загрузка процессора</th>
+            <td><span id="cpu_load">{{ system_monitor.cpu_load if system_monitor.cpu_load is not none else '—' }}</span>%</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Температура процессора</th>
+            <td><span id="cpu_temp">{{ system_monitor.cpu_temp if system_monitor.cpu_temp is not none else '—' }}</span>°C</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Постоянная память</th>
+            <td><span id="disk_load">{{ system_monitor.disk_percent if system_monitor.disk_percent is not none else '—' }}</span>%</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Оперативная память</th>
+            <td><span id="ram_load">{{ system_monitor.ram_percent if system_monitor.ram_percent is not none else '—' }}</span>%</td>
+            <td></td>
+        </tr>
+    </table>
 </section>
 
     <section class="card">
@@ -726,6 +826,30 @@
             </form>
         </div>
     </div>
+	
+<div id="closeMixingValveModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeCloseMixingValveModal()">&times;</span>
+        <h2>Отключать перемешивание при дозировании</h2>
+
+        <p style="margin-bottom: 15px; color: #475569;">
+            Если выбрано "Да", то на время открытия клапанов растворного узла будет закрываться клапан перемешивания.
+            Для растворных узлов на клапанах, управляемых WB-MR6C.
+        </p>
+
+        <div class="form-group">
+            <label for="close_mixing_valve_select">Значение</label>
+            <select id="close_mixing_valve_select" class="form-control">
+                <option value="1">Да</option>
+                <option value="0">Нет</option>
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="saveCloseMixingValveFlag()">
+            Записать
+        </button>
+    </div>
+</div>	
 
 
 <!-- Раздел для JS-функций -->
@@ -1166,6 +1290,113 @@ function setCloseMixingValveFlag() {
         alert('Сетевая ошибка при сохранении параметра.');
     });
 }
+
+const CLOSE_MIXING_VALVE_PARAM = 'Закрывать клапан перемешивания на время работы растворного узла';
+
+function openCloseMixingValveModal() {
+    const currentText = document.getElementById('close_mixing_valve_flag_text').innerText.trim();
+    document.getElementById('close_mixing_valve_select').value = currentText === 'Да' ? '1' : '0';
+    document.getElementById('closeMixingValveModal').style.display = 'block';
+}
+
+function closeCloseMixingValveModal() {
+    document.getElementById('closeMixingValveModal').style.display = 'none';
+}
+
+function saveCloseMixingValveFlag() {
+    const value = document.getElementById('close_mixing_valve_select').value;
+
+    fetch('/set_parameter_value', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json;charset=UTF-8'},
+        body: JSON.stringify({
+            parameter: CLOSE_MIXING_VALVE_PARAM,
+            value: value
+        })
+    })
+    .then(r => r.json().then(body => ({status: r.status, body})))
+    .then(({status, body}) => {
+        if (status >= 200 && status < 300 && body.success) {
+            document.getElementById('close_mixing_valve_flag_text').innerText = value === '1' ? 'Да' : 'Нет';
+            closeCloseMixingValveModal();
+        } else {
+            alert('Ошибка при сохранении параметра.');
+        }
+    })
+    .catch(() => {
+        alert('Сетевая ошибка при сохранении параметра.');
+    });
+}
+
+function updateEthernetModeView(prefix) {
+    const mode = document.getElementById(prefix + '_mode').value;
+
+    document.getElementById(prefix + '_dhcp_block').style.display = mode === 'dhcp' ? 'block' : 'none';
+    document.getElementById(prefix + '_static_block').style.display = mode === 'static' ? 'block' : 'none';
+}
+
+function getEthernetData(prefix) {
+    return {
+        mode: inputValue(prefix + '_mode'),
+        ip: inputValue(prefix + '_ip').trim(),
+        netmask: inputValue(prefix + '_netmask').trim(),
+        gateway: inputValue(prefix + '_gateway').trim(),
+        dns: inputValue(prefix + '_dns').trim()
+    };
+}
+
+function saveEthernetSettings() {
+    const data = {
+        lan1: getEthernetData('lan1'),
+        lan2: getEthernetData('lan2')
+    };
+
+    fetch('/update_ethernet_settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json;charset=UTF-8'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json().then(body => ({status: r.status, body})))
+    .then(({status, body}) => {
+        if (status >= 200 && status < 300) {
+            alert(body.message || 'Настройки Ethernet записаны.');
+        } else {
+            alert(body.message || 'Ошибка при сохранении настроек Ethernet.');
+        }
+    })
+    .catch(() => {
+        alert('Сетевая ошибка при сохранении настроек Ethernet.');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    updateEthernetModeView('lan1');
+    updateEthernetModeView('lan2');
+});
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.innerText = value ?? '—';
+    }
+}
+
+function updateSystemMonitoring() {
+    fetch('/system_monitor')
+        .then(r => r.json())
+        .then(data => {
+            setText('cpu_load', data.cpu_load);
+            setText('ram_load', data.ram_percent);
+            setText('disk_load', data.disk_percent);
+            setText('cpu_temp', data.cpu_temp);
+        })
+        .catch(() => {});
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    updateSystemMonitoring();
+    setInterval(updateSystemMonitoring, 5000);
+});
 </script>
 
 {% endblock %}

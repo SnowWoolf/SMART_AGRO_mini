@@ -79,6 +79,7 @@ previous_maintenance_mode   = None
 last_critical_links     = {}
 _prev_water_flow        = None
 _prev_total_volume      = None
+pending_change_sources = {}  # param.id -> "WEB" / "Сценарий" / "SYSTEM"
 
 mix_state = {
     "mix_start":   None,
@@ -448,7 +449,7 @@ def get_gsm_status_state():
     if not modem_state:
         return {
             "connected": False,
-            "text": "Нет связи или SIM-карта не вставлена"
+            "text": "Нет связи или SIM отсутствует. Перезапуск модема…"
         }
 
     gsm_ip = modem_state.get("ipaddr", "")
@@ -499,8 +500,7 @@ def monitor_network_status():
     if previous_network_status["gsm"] is None:
         previous_network_status["gsm"] = gsm_connected
     elif previous_network_status["gsm"] != gsm_connected:
-        level = "INFO" if gsm_connected else "ERROR"
-        insert_log_message(f"GSM: {gsm_text}", level)
+        insert_log_message(f"GSM: {gsm_text}", "INFO")
 
         previous_network_status["gsm"] = gsm_connected
 
@@ -625,7 +625,13 @@ def _max_dispatcher():
         while True:
             try:
                 level, msg = notify_queue.get_nowait()
-                batch.append((level, msg))
+
+                is_alarm = level in ("ERROR", "CRITICAL")
+                has_ip = "IP" in msg or "ip" in msg
+
+                if is_alarm or has_ip:
+                    batch.append((level, msg))
+
             except queue.Empty:
                 break
 
@@ -953,9 +959,13 @@ def execute_scenarios():
                 logger.error(f"Сценарий: {sc.parameter} not found")
                 continue
 
+            old_value = p.value
+
             p.value = sc.value
             p.value_date = datetime.now().replace(second=0, microsecond=0)
             session.commit()
+
+            pending_change_sources[p.id] = "Сценарий"
 
             p_ph = session.query(Parameter).filter_by(controlled_parameter_name="Уровень PH").first()
             p_ec = session.query(Parameter).filter_by(controlled_parameter_name="Уровень EC").first()
@@ -973,7 +983,7 @@ def execute_scenarios():
             sc.last_execution = datetime.now()
             session.commit()
 
-            insert_log_message(msg, "INFO")
+#            insert_log_message(msg, "INFO")
 
     except Exception as e:
         logger.error(f"Scenario error: {e}")
@@ -1441,11 +1451,22 @@ def poll_parameters():
             if db_raw_f != prev_db_f and dev_raw_f == prev_dev_f:
                 ok = write_parameter_value(p, db_raw_f)
                 if ok:
+                    source = pending_change_sources.pop(p.id, "WEB")
+
+                    try:
+                        p_ph = params_dict.get("Уровень PH")
+                        p_ec = params_dict.get("Уровень EC")
+                        ph_fmt = format_value(p_ph, p_ph.value) if p_ph else "—"
+                        ec_fmt = format_value(p_ec, p_ec.value) if p_ec else "—"
+                        tail = f". PH={ph_fmt}, EC={ec_fmt}"
+                    except Exception:
+                        tail = ""
+
                     insert_log_message(
-                        f"{p.controlled_parameter_name} изменено с WEB-интерфейса → "
-                        f"{format_value(p, str(db_raw_f))}",
+                        f"{source}: {p.controlled_parameter_name} -> {format_value(p, str(db_raw_f))}{tail}",
                         level="INFO"
                     )
+
                     previous_db_values[p.id] = db_raw_f
                     previous_device_values[p.id] = db_raw_f
 

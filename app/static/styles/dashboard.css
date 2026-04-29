@@ -650,6 +650,11 @@ body.no-scroll{ overflow: hidden; }
   margin-left: 2px;
 }
 
+.nav-user {
+    margin-right: 8px;
+    opacity: 0.8;
+}
+
 .status-icon {
   width: 22px;
   height: 22px;
@@ -1475,4 +1480,10 @@ body.no-scroll{ overflow: hidden; }
     .step-actions .btn {
         width: 100%;
     }
+}
+
+.nav-user {
+  color: #e5e7eb;
+  font-weight: 600;
+  white-space: nowrap;
 }

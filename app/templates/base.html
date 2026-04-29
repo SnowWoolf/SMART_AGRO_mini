@@ -51,6 +51,9 @@
 					</svg>
 				</span>
 			
+				<span class="nav-user">
+					{{ current_user.username }}
+				</span>
 				<a href="{{ url_for('main.logout') }}">Выйти</a>
 			</li>
 
