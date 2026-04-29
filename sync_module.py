@@ -612,12 +612,15 @@ def format_value(param: Parameter, raw_val: str) -> str:
     except Exception:
         return str(raw_val)
 
+# Отбор сообщений для отправки в мессенджер
 def should_send_to_max(level: str, msg: str) -> bool:
-    is_alarm = level in ("ERROR", "CRITICAL")
-    has_ip = "IP" in msg or "ip" in msg
-    is_regulation_result = msg.startswith("По завершении цикла регулирования получили:")
-
-    return is_alarm or has_ip or is_regulation_result
+    return (
+        level in ("ERROR", "CRITICAL")
+        or "IP" in msg
+        or "ip" in msg
+        or msg.startswith("По завершении цикла регулирования получили:")
+        or msg.startswith("Запуск синхронизации:")
+    )
     
 def _max_dispatcher():
     """
