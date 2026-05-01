@@ -1,3 +1,4 @@
+# VERSION: 2.0.010526
 # ─────────────────────────────────────────────────────────────────────────────
 # sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1279,12 +1280,13 @@ def handle_feed_timers(params_dict: dict):
     if mix_state.get("phase") == "post_stabilization":
         elapsed2 = (now - mix_state["mix_start"]).total_seconds()
         if elapsed2 >= mp.stabilization_time:
+            curr_ec = float(get_parameter_value("Уровень EC") or 0)
+            curr_ph = float(get_parameter_value("Уровень PH") or 0)
             lines = ["По завершении цикла регулирования получили:"]
 
             if mix_state["expected_ec"] == 0:
                 lines.append("Регулирование по EC не выполнялось.")
             else:
-                curr_ec = float(get_parameter_value("Уровень EC") or 0)
                 actual_ec_change = curr_ec - mix_state["prev_ec"]
                 eff_ec = (actual_ec_change / mix_state["expected_ec"] * 100) if mix_state["expected_ec"] else 0
                 lines.append(
@@ -1295,13 +1297,14 @@ def handle_feed_timers(params_dict: dict):
             if mix_state["expected_ph"] == 0:
                 lines.append("Регулирование по pH кислотой не выполнялось.")
             else:
-                curr_ph = float(get_parameter_value("Уровень PH") or 0)
                 actual_ph_change = mix_state["prev_ph"] - curr_ph
                 eff_ph = (actual_ph_change / mix_state["expected_ph"] * 100) if mix_state["expected_ph"] else 0
                 lines.append(
                     f"Ожидаемое изменение pH = {mix_state['expected_ph']:.3f}, "
                     f"факт = {actual_ph_change:.3f}, эффективность = {eff_ph:.0f}%"
                 )
+
+            lines.append(f"Текущие значения: PH={curr_ph:.1f}, EC={curr_ec:.1f}")
 
             insert_log_message("\n".join(lines), "INFO")
             mix_state["phase"] = "regulating"

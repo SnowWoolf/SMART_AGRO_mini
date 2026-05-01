@@ -1,3 +1,4 @@
+# VERSION: 2.0.270426
 # config.py
 import os
 import sqlite3

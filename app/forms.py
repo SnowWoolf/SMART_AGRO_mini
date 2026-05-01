@@ -1,3 +1,4 @@
+# VERSION: 2.0.270426
 from flask_wtf import FlaskForm
 from wtforms.validators import DataRequired, NumberRange
 from wtforms import StringField, IntegerField, FloatField, DateField, SelectField, SubmitField, PasswordField, BooleanField

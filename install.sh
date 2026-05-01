@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# VERSION: 2.0.290426
 set -e
 
 echo "=== SMART AGRO INSTALL ==="

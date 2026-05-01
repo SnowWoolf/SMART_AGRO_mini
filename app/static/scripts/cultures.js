@@ -1,3 +1,4 @@
+// VERSION: 2.0.270426
 // Открытие модального окна для добавления/обновления культуры
 function openCultureModal(cultureId) {
     const modal = document.getElementById('culture-modal');

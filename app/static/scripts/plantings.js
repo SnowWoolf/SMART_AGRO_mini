@@ -1,3 +1,4 @@
+// VERSION: 2.0.270426
 document.addEventListener('DOMContentLoaded', function() {
     const controlDateElement = document.getElementById('control-date');
     const analysisElement = document.querySelector('.analysis');

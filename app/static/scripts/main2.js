@@ -1,3 +1,4 @@
+// UI_VERSION: univ-2.0.290426
 // файл \app\static\scripts\main2.js
 
 

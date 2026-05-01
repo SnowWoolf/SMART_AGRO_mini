@@ -1,3 +1,4 @@
+# VERSION: 2.0.270426
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy

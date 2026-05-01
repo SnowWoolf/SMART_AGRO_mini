@@ -1,3 +1,4 @@
+# VERSION: 2.0.270426
 from app_instance import app
 import threading
 

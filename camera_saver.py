@@ -1,3 +1,4 @@
+# VERSION: 2.0.270426
 # camera_saver.py
 import os
 import time

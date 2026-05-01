@@ -1,3 +1,4 @@
+// VERSION: 2.0.270426
 (function(){
   const withCam = (url, cam) => {
     const u = new URL(url, window.location.origin);

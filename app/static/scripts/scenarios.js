@@ -1,3 +1,4 @@
+// VERSION: 2.0.270426
 let scenarioParamsCache = null;
 
 async function getScenarioParams() {

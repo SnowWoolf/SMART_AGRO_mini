@@ -1,3 +1,4 @@
+# VERSION: 2.0.300426
 from . import db, login as login_manager
 from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
 from flask_login import current_user, login_user, logout_user, login_required
