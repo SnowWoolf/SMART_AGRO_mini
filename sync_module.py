@@ -1,4 +1,4 @@
-# VERSION: 2.0.010526
+# VERSION: 2.0.020526.1
 # ─────────────────────────────────────────────────────────────────────────────
 # sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
@@ -114,6 +114,11 @@ FEED_RELAYS = [
 ]
 
 previous_network_status = {
+    "wifi": None,
+    "gsm": None,
+}
+
+previous_network_ips = {
     "wifi": None,
     "gsm": None,
 }
@@ -251,9 +256,9 @@ def send_max_message(text: str, level: str = "INFO"):
         return False
 
 
-def insert_log_message(message: str, level: str="INFO"):
+def insert_log_message(message: str, level: str="INFO", queue_for_max: bool=True):
     """
-    Записывает лог в БД и ставит в очередь для пакетной отправки.
+    Записывает лог в БД и, при необходимости, ставит в очередь для пакетной отправки.
     """
     try:
         entry = Log(message=message, level=level, timestamp=datetime.now())
@@ -265,7 +270,8 @@ def insert_log_message(message: str, level: str="INFO"):
             for old in session.query(Log).order_by(Log.timestamp).limit(total-1000):
                 session.delete(old)
             session.commit()
-        notify_queue.put((level, message))
+        if queue_for_max:
+            notify_queue.put((level, message))
 
     except Exception as e:
         logger.error(f"Ошибка логирования: {e}")
@@ -450,6 +456,7 @@ def get_gsm_status_state():
     if not modem_state:
         return {
             "connected": False,
+            "ip": "",
             "text": "Нет связи или SIM отсутствует. Перезапуск модема…"
         }
 
@@ -459,17 +466,24 @@ def get_gsm_status_state():
     if gsm_ip:
         return {
             "connected": True,
+            "ip": gsm_ip,
             "text": f"{net_type}: соединение восстановлено, IP {gsm_ip}"
         }
 
     return {
         "connected": False,
+        "ip": "",
         "text": f"{net_type}: соединение потеряно"
     }
 
 
+def extract_ipv4_address(text: str) -> str:
+    match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", text or "")
+    return match.group(0) if match else ""
+
+
 def monitor_network_status():
-    global previous_network_status, last_network_status_check
+    global previous_network_status, previous_network_ips, last_network_status_check
 
     now = datetime.now()
 
@@ -482,17 +496,28 @@ def monitor_network_status():
 
     wifi_text = get_wifi_client_status()
     wifi_connected = wifi_text.startswith("Подключен, получен IP:")
+    wifi_ip = extract_ipv4_address(wifi_text) if wifi_connected else ""
 
     gsm_state = get_gsm_status_state()
     gsm_connected = gsm_state["connected"]
+    gsm_ip = gsm_state.get("ip", "") if gsm_connected else ""
     gsm_text = gsm_state["text"]
 
     # Первый проход только запоминаем состояние
     if previous_network_status["wifi"] is None:
         previous_network_status["wifi"] = wifi_connected
+        if wifi_ip:
+            previous_network_ips["wifi"] = wifi_ip
     elif previous_network_status["wifi"] != wifi_connected:
         if wifi_connected:
-            insert_log_message(f"WiFi: соединение восстановлено, {wifi_text}", "INFO")
+            ip_changed = previous_network_ips["wifi"] != wifi_ip
+            insert_log_message(
+                f"WiFi: соединение восстановлено, {wifi_text}",
+                "INFO",
+                queue_for_max=ip_changed
+            )
+            if wifi_ip:
+                previous_network_ips["wifi"] = wifi_ip
         else:
             insert_log_message("WiFi: соединение потеряно", "ERROR")
 
@@ -500,8 +525,20 @@ def monitor_network_status():
 
     if previous_network_status["gsm"] is None:
         previous_network_status["gsm"] = gsm_connected
+        if gsm_ip:
+            previous_network_ips["gsm"] = gsm_ip
     elif previous_network_status["gsm"] != gsm_connected:
-        insert_log_message(f"GSM: {gsm_text}", "INFO")
+        if gsm_connected:
+            ip_changed = previous_network_ips["gsm"] != gsm_ip
+            insert_log_message(
+                f"GSM: {gsm_text}",
+                "INFO",
+                queue_for_max=ip_changed
+            )
+            if gsm_ip:
+                previous_network_ips["gsm"] = gsm_ip
+        else:
+            insert_log_message(f"GSM: {gsm_text}", "INFO")
 
         previous_network_status["gsm"] = gsm_connected
 
