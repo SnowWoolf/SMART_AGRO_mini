@@ -1,4 +1,4 @@
-# VERSION: 2.0.040526-3
+# VERSION: 2.0.040526-4
 # ─────────────────────────────────────────────────────────────────────────────
 # sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
@@ -221,6 +221,9 @@ def read_software_version():
 
 
 def add_software_version_to_message(text: str) -> str:
+    if not text.startswith("Запуск синхронизации:"):
+        return text
+
     version_line = f"Версия ПО: {read_software_version()}"
     if text.startswith("Версия ПО:"):
         return text
