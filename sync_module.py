@@ -38,7 +38,7 @@ MAX_USER_ID            = os.getenv("MAX_USER_ID")
 MAX_BATCH_INTERVAL     = int(os.getenv("MAX_BATCH_INTERVAL", "10"))
 MAX_API_BASE           = os.getenv("MAX_API_BASE", "https://platform-api.max.ru")
 MAX_DISABLE_LINK_PREVIEW = os.getenv("MAX_DISABLE_LINK_PREVIEW", "true").lower() == "true"
-MAX_MESSAGE_LIMIT      = 200
+MAX_MESSAGE_LIMIT      = 3999
 MAX_MESSAGE_PART_DELAY = 2
 VERSION_FILE_PATH      = os.path.join(os.path.dirname(os.path.abspath(__file__)), "version")
 
