@@ -1,4 +1,4 @@
-# VERSION: 2.0.020526.1
+# VERSION: 2.0.040526-2
 # ─────────────────────────────────────────────────────────────────────────────
 # sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
@@ -38,6 +38,9 @@ MAX_USER_ID            = os.getenv("MAX_USER_ID")
 MAX_BATCH_INTERVAL     = int(os.getenv("MAX_BATCH_INTERVAL", "10"))
 MAX_API_BASE           = os.getenv("MAX_API_BASE", "https://platform-api.max.ru")
 MAX_DISABLE_LINK_PREVIEW = os.getenv("MAX_DISABLE_LINK_PREVIEW", "true").lower() == "true"
+MAX_MESSAGE_LIMIT      = 200
+MAX_MESSAGE_PART_DELAY = 2
+VERSION_FILE_PATH      = os.path.join(os.path.dirname(os.path.abspath(__file__)), "version")
 
 CRITICAL_ALERT_INTERVAL  = int(os.getenv("CRITICAL_ALERT_INTERVAL", "60"))  # в минутах
 OFFLINE_ALERT_THRESHOLDS = [5, 10, 30, 60]  # в минутах
@@ -208,6 +211,52 @@ def monitor_total_volume(current_volume: float):
     _prev_total_volume = current_volume
 
 
+def read_software_version():
+    try:
+        with open(VERSION_FILE_PATH, "r", encoding="utf-8") as f:
+            version = f.readline().strip()
+        return version or "не указана"
+    except Exception:
+        return "не указана"
+
+
+def add_software_version_to_message(text: str) -> str:
+    version_line = f"Версия ПО: {read_software_version()}"
+    if text.startswith("Версия ПО:"):
+        return text
+    return f"{version_line}\n{text}"
+
+
+def split_message_by_limit(text: str, limit: int = MAX_MESSAGE_LIMIT):
+    if limit <= 0 or len(text) <= limit:
+        return [text]
+
+    parts = []
+    current = ""
+
+    for line in text.splitlines():
+        candidate = line if not current else f"{current}\n{line}"
+        if len(candidate) <= limit:
+            current = candidate
+            continue
+
+        if current:
+            parts.append(current)
+            current = ""
+
+        while len(line) > limit:
+            parts.append(line[:limit])
+            line = line[limit:]
+
+        if line:
+            current = line
+
+    if current:
+        parts.append(current)
+
+    return parts or [text[:limit]]
+
+
 def send_max_message(text: str, level: str = "INFO"):
     if not MAX_TOKEN:
         logger.error("MAX_TOKEN не задан")
@@ -233,23 +282,30 @@ def send_max_message(text: str, level: str = "INFO"):
         "Content-Type": "application/json",
     }
 
-    payload = {
-        "text": text,
-        "disable_link_preview": MAX_DISABLE_LINK_PREVIEW,
-        "notify": notify,
-    }
+    message_parts = split_message_by_limit(add_software_version_to_message(text), MAX_MESSAGE_LIMIT)
 
     try:
-        r = requests.post(
-            url,
-            params=params,
-            headers=headers,
-            json=payload,
-            timeout=5,
-        )
-        if r.status_code not in (200, 201):
-            logger.error(f"MAX error {r.status_code}: {r.text}")
-            return False
+        for index, message_part in enumerate(message_parts):
+            payload = {
+                "text": message_part,
+                "disable_link_preview": MAX_DISABLE_LINK_PREVIEW,
+                "notify": notify,
+            }
+
+            r = requests.post(
+                url,
+                params=params,
+                headers=headers,
+                json=payload,
+                timeout=5,
+            )
+            if r.status_code not in (200, 201):
+                logger.error(f"MAX error {r.status_code}: {r.text}")
+                return False
+
+            if index < len(message_parts) - 1:
+                _time.sleep(MAX_MESSAGE_PART_DELAY)
+
         return True
     except Exception as e:
         logger.error(f"MAX exception: {e}")
