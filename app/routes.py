@@ -1,4 +1,4 @@
-# VERSION: 2.0.300426
+# VERSION: 2.0.040526
 from . import db, login as login_manager
 from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
 from flask_login import current_user, login_user, logout_user, login_required
@@ -323,7 +323,19 @@ def read_system_monitor():
             "ram_usage",
             f"Загрузка оперативной памяти превышает 90%: {ram_percent}%"
         )
+        
+    if cpu_load is not None and cpu_load >= 90:
+        _log_system_error_once(
+            "cpu_load",
+            f"Загрузка процессора превышает 90%: {cpu_load}%"
+        )
 
+    if cpu_temp is not None and cpu_temp >= 80:
+        _log_system_error_once(
+            "cpu_temp",
+            f"Температура процессора превышает 80°C: {cpu_temp}°C"
+        )
+        
     return {
         "disk_percent": disk_percent,
         "ram_percent": ram_percent,
