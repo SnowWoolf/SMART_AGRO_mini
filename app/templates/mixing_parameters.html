@@ -1,4 +1,4 @@
-<!-- VERSION: 2.0.290426 -->
+<!-- VERSION: 2.0.040526-3 -->
 {% extends "base.html" %}
 {% block content %}
 
@@ -436,6 +436,9 @@
     <h2>Состояние модема</h2>
 
     <table class="table--compact">
+        {% if not modem_state %}
+        <tr><td colspan="3">Модем перезагружается или SIM-карта отсутствует</td></tr>
+        {% else %}
         <tr><th>IP-адрес</th><td>{{ modem_state.ipaddr or '—' }}</td><td></td></tr>
         <tr><th>Тип</th><td>{{ modem_state.type or '—' }}</td><td></td></tr>
         <tr><th>IMEI</th><td>{{ modem_state.imei or '—' }}</td><td></td></tr>
@@ -455,6 +458,7 @@
         <tr><th>RSRQ</th><td>{{ modem_state.rsrq or '—' }}</td><td></td></tr>
         <tr><th>SINR</th><td>{{ modem_state.sinr or '—' }}</td><td></td></tr>
         <tr><th>Обновлено</th><td>{{ modem_state.last_update or '—' }}</td><td></td></tr>
+        {% endif %}
     </table>
 </section>
 

@@ -11,6 +11,7 @@ TMP_DIR="$(mktemp -d)"
 REPO_DIR="$TMP_DIR/repo"
 UPDATED_LIST="$TMP_DIR/updated_files.txt"
 ADDED_LIST="$TMP_DIR/added_files.txt"
+NOUPD_LIST="$TMP_DIR/noupd_files.txt"
 BACKUP_TAR="$TMP_DIR/app_backup.tar"
 
 cleanup() {
@@ -135,6 +136,12 @@ is_remote_newer() {
     [ "$remote_key" -gt "$local_key" ]
 }
 
+is_noupd_version() {
+    local version="$1"
+
+    [[ "$version" == *-noupd ]]
+}
+
 stop_services() {
     log "Stopping services..."
     systemctl stop "$WEB_SERVICE"
@@ -252,6 +259,21 @@ add_update() {
     printf '%s\n' "$rel_path" >> "$UPDATED_LIST"
 }
 
+add_noupd() {
+    local rel_path="$1"
+
+    printf '%s\n' "$rel_path" >> "$NOUPD_LIST"
+}
+
+print_noupd_warning() {
+    if [ ! -s "$NOUPD_LIST" ]; then
+        return
+    fi
+
+    log "ВНИМАНИЕ! Необходимо вручную проверить и обновить содержимое файлов:"
+    sed 's/^/ - /' "$NOUPD_LIST"
+}
+
 require_command git
 require_command systemctl
 require_command find
@@ -265,6 +287,7 @@ git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$REPO_DIR" >/dev/null 2>&1
 
 : > "$UPDATED_LIST"
 : > "$ADDED_LIST"
+: > "$NOUPD_LIST"
 
 while IFS= read -r -d '' remote_file; do
     rel_path="${remote_file#$REPO_DIR/}"
@@ -288,6 +311,12 @@ while IFS= read -r -d '' remote_file; do
         continue
     fi
 
+    if is_noupd_version "$local_version"; then
+        log "Skip update: $rel_path ($local_version)"
+        add_noupd "$rel_path"
+        continue
+    fi
+
     if [ -z "$local_version" ]; then
         log "Will update: $rel_path (local VERSION missing -> $remote_version)"
         add_update "$rel_path"
@@ -302,6 +331,7 @@ done < <(find "$REPO_DIR" -type f -not -path "$REPO_DIR/.git/*" -print0)
 
 if [ ! -s "$UPDATED_LIST" ]; then
     log "No updates found."
+    print_noupd_warning
     exit 0
 fi
 
@@ -336,3 +366,4 @@ fi
 
 log "Updated files:"
 sed 's/^/ - /' "$UPDATED_LIST"
+print_noupd_warning
