@@ -289,7 +289,8 @@ while IFS= read -r -d '' remote_file; do
     fi
 
     if [ -z "$local_version" ]; then
-        log "Skip without local VERSION: $rel_path"
+        log "Will update: $rel_path (local VERSION missing -> $remote_version)"
+        add_update "$rel_path"
         continue
     fi
 
