@@ -171,6 +171,27 @@ wait_service_active() {
     return 1
 }
 
+check_services_stable() {
+    local delay_sec="${1:-10}"
+
+    log "Waiting ${delay_sec}s to verify services remain active..."
+    sleep "$delay_sec"
+
+    if ! systemctl is-active --quiet "$SYNC_SERVICE"; then
+        log "$SYNC_SERVICE is not active after ${delay_sec}s."
+        print_service_status "$SYNC_SERVICE"
+        return 1
+    fi
+
+    if ! systemctl is-active --quiet "$WEB_SERVICE"; then
+        log "$WEB_SERVICE is not active after ${delay_sec}s."
+        print_service_status "$WEB_SERVICE"
+        return 1
+    fi
+
+    return 0
+}
+
 start_and_check_services() {
     log "Starting and checking services..."
 
@@ -198,6 +219,10 @@ start_and_check_services() {
         return 1
     fi
 
+    if ! check_services_stable 10; then
+        return 1
+    fi
+
     return 0
 }
 
@@ -221,12 +246,38 @@ restore_backup() {
     tar -C "$APP_DIR" -xpf "$BACKUP_TAR"
 }
 
+confirm_rollback() {
+    local answer
+
+    while true; do
+        printf 'Выполнить откат из backup? [yes/no]: '
+        IFS= read -r answer
+
+        case "$answer" in
+            yes|y|YES|Y)
+                return 0
+                ;;
+            no|n|NO|N)
+                return 1
+                ;;
+            *)
+                log "Введите yes или no."
+                ;;
+        esac
+    done
+}
+
 rollback_and_fail() {
     local reason="$1"
     local restore_status
     local service_status
 
     log "ERROR: $reason"
+
+    if ! confirm_rollback; then
+        fail "Update failed without rollback: $reason"
+    fi
+
     log "Rolling back update..."
 
     set +e
