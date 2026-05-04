@@ -1,4 +1,4 @@
-# VERSION: 2.0.040526
+# VERSION: 2.0.040526-1
 from . import db, login as login_manager
 from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
 from flask_login import current_user, login_user, logout_user, login_required
@@ -2626,7 +2626,7 @@ def status_summary():
             gsm_text = f"{net_type}: нет IP"
     else:
         gsm_state = "unknown"
-        gsm_text = "Модем не обнаружен или нет данных"
+        gsm_text = "Модем перезагружается или SIM-карта отсутствует"
 
     return jsonify({
         "wifi": wifi_state,
