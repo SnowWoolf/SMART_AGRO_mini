@@ -1,4 +1,4 @@
-# VERSION: 2.0.060526-1
+# VERSION: 2.0.060526-2
 # ─────────────────────────────────────────────────────────────────────────────
 # sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
@@ -762,6 +762,7 @@ def consume_pending_change_source(param: Parameter, current_value: float) -> str
 def should_send_to_max(level: str, msg: str) -> bool:
     return (
         level in ("ERROR", "CRITICAL")
+        or (msg.startswith("Устройство ") and msg.endswith(" снова на связи"))
         or "IP" in msg
         or "ip" in msg
         or msg.startswith("По завершении цикла регулирования получили:")
@@ -1153,7 +1154,8 @@ def update_offline_counter(dev):
 
 
 def reset_offline_counter(dev):
-    if offline_counters.pop(dev, None) is not None:
+    ctr = offline_counters.pop(dev, None)
+    if ctr and ctr.get("sent"):
         insert_log_message(f"Устройство {dev} снова на связи", "INFO")
 
 
