@@ -1,4 +1,4 @@
-# VERSION: 2.0.040526-4
+# VERSION: 2.0.060526-1
 # ─────────────────────────────────────────────────────────────────────────────
 # sync_module.py              
 # ─────────────────────────────────────────────────────────────────────────────
@@ -107,6 +107,13 @@ CRITICAL_LINKS = [
     ("Подача В в бак", True, "Уровень В", False),
     ("Подача кислоты в бак", True, "Уровень К", False),
 ]
+
+CRITICAL_LINK_MESSAGES = {
+    0: "Насос отключен в связи с критическим снижением уровня воды в баке",
+    1: "Подача А в бак отключена в связи с критическим снижением уровня раствора A",
+    2: "Подача В в бак отключена в связи с критическим снижением уровня раствора В",
+    3: "Подача кислоты в бак отключена в связи с критическим снижением уровня кислоты",
+}
 
 STIRRER_PARAM = "Перемешивание"
 CLOSE_STIRRER_DURING_FEED_PARAM = "Закрывать клапан перемешивания на время работы растворного узла"
@@ -1146,7 +1153,8 @@ def update_offline_counter(dev):
 
 
 def reset_offline_counter(dev):
-    offline_counters.pop(dev, None)
+    if offline_counters.pop(dev, None) is not None:
+        insert_log_message(f"Устройство {dev} снова на связи", "INFO")
 
 
 def check_offline_alarms():
@@ -1531,8 +1539,12 @@ def poll_parameters():
             if not last or (now - last).total_seconds() >= CRITICAL_ALERT_INTERVAL * 60:
                 state1 = format_value(p1, p1.value)
                 state2 = format_value(p2, p2.value)
+                message = CRITICAL_LINK_MESSAGES.get(
+                    idx,
+                    f"Критическое событие: {p1_name} — {state1}, {p2_name} — {state2}"
+                )
                 insert_log_message(
-                    f"Критическое событие: {p1_name} — {state1}, {p2_name} — {state2}",
+                    message,
                     level="ERROR"
                 )
                 last_critical_links[idx] = now

@@ -1,4 +1,4 @@
-# VERSION: 2.0.040526-1
+# VERSION: 2.0.060526-1
 from . import db, login as login_manager
 from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
 from flask_login import current_user, login_user, logout_user, login_required
@@ -2270,7 +2270,7 @@ def restart_wifi_service():
 @bp.route('/update_modem_settings', methods=['POST'])
 @login_required
 def update_modem_settings():
-    if not current_user.is_authenticated or current_user.role != "admin":
+    if current_user.username != "admin" and current_user.role != "admin":
         return jsonify({"status": "error", "message": "Недостаточно прав"}), 403
 
     data = request.get_json(silent=True) or {}
@@ -2291,7 +2291,7 @@ def update_modem_settings():
 @bp.route('/restart_modem_service', methods=['POST'])
 @login_required
 def restart_modem_service():
-    if not current_user.is_authenticated or current_user.role != "admin":
+    if current_user.username != "admin" and current_user.role != "admin":
         return jsonify({"status": "error", "message": "Недостаточно прав"}), 403
 
     try:
