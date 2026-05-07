@@ -1,7 +1,8 @@
-# VERSION: 2.0.060526-1
+# VERSION: 2.0.070526-1
 from . import db, login as login_manager
-from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request
+from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, current_app, abort
 from flask_login import current_user, login_user, logout_user, login_required
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from .models import User, Parameter, Scenario, ScenarioCycle, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
 from .forms import LoginForm, CultureForm
 from datetime import datetime, timedelta
@@ -30,12 +31,16 @@ TRAFFIC_STATS_PATH = "/var/lib/agrosmart/traffic_stats.json"
 TRAFFIC_POLL_INTERVAL_SEC = 300
 _traffic_timer_started = False
 
+try:
+    CURRENT_DEVICE_ID = int(os.getenv("CURRENT_DEVICE_ID", "0"))
+except ValueError:
+    CURRENT_DEVICE_ID = 0
+
 
 # === КАМЕРА: импорты ===
 import cv2, glob
 import datetime as dt
 from flask import send_file
-from werkzeug.exceptions import abort
 
 # Для np_from_file
 import numpy as np
@@ -905,6 +910,36 @@ def login():
         form=form,
         firmware_versions=read_firmware_versions()
     )
+
+@bp.route('/__agro_login')
+def agro_login():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+
+    token = request.args.get('token')
+    if not token:
+        abort(401)
+
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+
+    try:
+        data = serializer.loads(token, max_age=60)
+    except (BadSignature, SignatureExpired):
+        abort(401)
+
+    user_id = data.get('user_id')
+    device_id = data.get('device_id')
+
+    if device_id != CURRENT_DEVICE_ID:
+        abort(403)
+
+    user = User.query.get(user_id)
+    if not user:
+        abort(401)
+
+    login_user(user)
+
+    return redirect(url_for('main.index'))
 
 @bp.route('/logout')
 def logout():
