@@ -1,6 +1,6 @@
-# VERSION: 2.0.070526-1
+# VERSION: 2.0.070526-2
 from . import db, login as login_manager
-from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, current_app, abort
+from flask import Blueprint, render_template, flash, redirect, url_for, jsonify, request, abort
 from flask_login import current_user, login_user, logout_user, login_required
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from .models import User, Parameter, Scenario, ScenarioCycle, Tray, Culture, MixingParameter, Log, DensityRecord, Planting
@@ -29,12 +29,30 @@ MODEM_INFO_PATH = "/run/uspd/modem/modem.info"
 ETHERNET_INTERFACES_PATH = "/etc/network/interfaces"
 TRAFFIC_STATS_PATH = "/var/lib/agrosmart/traffic_stats.json"
 TRAFFIC_POLL_INTERVAL_SEC = 300
+AGRO_MONITOR_AGENT_CONFIG_PATH = "/opt/agro-monitor-agent/config.env"
 _traffic_timer_started = False
 
 try:
     CURRENT_DEVICE_ID = int(os.getenv("CURRENT_DEVICE_ID", "0"))
 except ValueError:
     CURRENT_DEVICE_ID = 0
+
+
+def read_device_api_token():
+    try:
+        with open(AGRO_MONITOR_AGENT_CONFIG_PATH, "r", encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                if key.strip() == "DEVICE_API_TOKEN":
+                    return value.strip().strip("\"'")
+    except Exception:
+        pass
+
+    return None
 
 
 # === КАМЕРА: импорты ===
@@ -920,7 +938,11 @@ def agro_login():
     if not token:
         abort(401)
 
-    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    device_api_token = read_device_api_token()
+    if not device_api_token:
+        return redirect(url_for('main.login'))
+
+    serializer = URLSafeTimedSerializer(device_api_token)
 
     try:
         data = serializer.loads(token, max_age=60)
@@ -928,10 +950,6 @@ def agro_login():
         abort(401)
 
     user_id = data.get('user_id')
-    device_id = data.get('device_id')
-
-    if device_id != CURRENT_DEVICE_ID:
-        abort(403)
 
     user = User.query.get(user_id)
     if not user:
